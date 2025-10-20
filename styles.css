@@ -133,12 +133,39 @@
      font-weight: 500;
  }
 
- .segments button.active {
-     background: var(--primary);
-     color: white;
- }
+.segments button.active {
+    background: var(--primary);
+    color: white;
+}
 
- .card {
+.controls select {
+    appearance: none;
+    -webkit-appearance: none;
+    border: 1px solid rgba(85, 99, 255, 0.35);
+    background-color: rgba(85, 99, 255, 0.12);
+    background-image: url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L6 6L11 1' stroke='%235563FF' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 16px center;
+    background-size: 12px;
+    border-radius: 999px;
+    padding: 10px 42px 10px 18px;
+    color: var(--text);
+    font-weight: 500;
+    cursor: pointer;
+    box-shadow: 0 12px 24px rgba(32, 46, 120, 0.08);
+    min-width: 190px;
+}
+
+.controls select:hover {
+    background-color: rgba(85, 99, 255, 0.18);
+}
+
+.controls select:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(85, 99, 255, 0.22);
+}
+
+.card {
      background: var(--card);
      border-radius: var(--radius);
      box-shadow: 0 24px 48px rgba(32, 46, 120, 0.12);
