@@ -6,89 +6,134 @@
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <header class="top-bar">
-      <div class="brand">YourFeed</div>
-      <div class="search">
-        <input placeholder="Search saved items…" />
-      </div>
-      <div class="profile">AA</div>
-    </header>
+    <div class="app">
+      <header class="feed-intro">
+        <h1>YOUR FEED</h1>
+        <span class="timestamp">last updated 3h ago</span>
+      </header>
 
-    <aside class="sources">
-      <h2>Sources</h2>
-      <button class="source active">
-        <span>All</span>
-        <small>42 new</small>
-      </button>
-      <button class="source">
-        <span>YouTube</span>
-        <small>24</small>
-      </button>
-      <button class="source">
-        <span>Substack</span>
-        <small>18</small>
-      </button>
-      <button class="add-source">+ Add source</button>
-    </aside>
+      <main class="feed">
+        <section class="channel">
+          <header class="channel-heading">
+            <span class="channel-icon" aria-hidden="true">&#128218;</span>
+            <div class="channel-copy">
+              <h2>READING</h2>
+              <p class="channel-tags">Substack &bull; Longform &bull; Essays</p>
+            </div>
+          </header>
 
-    <main class="feed">
-      <section class="controls">
-        <div class="segments">
-          <button class="active">All</button>
-          <button>Videos</button>
-          <button>Articles</button>
-          <button>Saved</button>
-        </div>
-        <select>
-          <option>Newest first</option>
-          <option>Oldest first</option>
-          <option>Shortest first</option>
-          <option>Longest first</option>
-        </select>
-      </section>
+          <div class="entries">
+            <article class="entry">
+              <h3>
+                <span class="entry-bullet" aria-hidden="true">&#9635;</span>
+                <span class="entry-source">The Margins &mdash; Sari Azout</span>
+              </h3>
+              <p class="entry-title">&ldquo;The Software of the Mind&rdquo;</p>
+              <p class="entry-summary">
+                A reflection on how early operating systems shaped our collective imagination.
+              </p>
+              <p class="entry-meta">&mdash; 9 min read &bull; added Oct 20</p>
+            </article>
 
-      <article class="card">
-        <div class="media youtube"></div>
-        <div class="meta">
-          <img class="avatar" src="https://placehold.co/40" alt="" />
-          <div>
-            <strong>Ali Abdaal</strong>
-            <span>YouTube • 2h ago</span>
+            <article class="entry">
+              <h3>
+                <span class="entry-bullet" aria-hidden="true">&#9635;</span>
+                <span class="entry-source">Slow Boring &mdash; Matt Yglesias</span>
+              </h3>
+              <p class="entry-title">&ldquo;What Makes a Good Policy Analyst?&rdquo;</p>
+              <p class="entry-summary">
+                A grounded essay about intellectual humility and policy design.
+              </p>
+              <p class="entry-meta">&mdash; 7 min read &bull; added Oct 19</p>
+            </article>
           </div>
-        </div>
-        <h3>How to Build a Personal Knowledge Feed</h3>
-        <p>
-          In this video I share my workflow for curating high-signal content from the channels I love, without doomscrolling…
-        </p>
-        <div class="actions">
-          <button>Mark as read</button>
-          <button>Save</button>
-          <button class="primary">Watch on YouTube</button>
-        </div>
-        <div class="progress">
-          <div style="width: 35%;"></div>
-        </div>
-      </article>
 
-      <article class="card">
-        <div class="media substack"></div>
-        <div class="meta">
-          <img class="avatar" src="https://placehold.co/40" alt="" />
-          <div>
-            <strong>Not Boring</strong>
-            <span>Substack • Yesterday</span>
+          <a class="channel-link" href="#">See all reading &#9654;</a>
+        </section>
+
+        <section class="channel">
+          <header class="channel-heading">
+            <span class="channel-icon" aria-hidden="true">&#127911;</span>
+            <div class="channel-copy">
+              <h2>WATCHING</h2>
+              <p class="channel-tags">YouTube &bull; Podcasts</p>
+            </div>
+          </header>
+
+          <div class="entries">
+            <article class="entry">
+              <h3>
+                <span class="entry-bullet" aria-hidden="true">&#9635;</span>
+                <span class="entry-source">ColdFusion</span>
+              </h3>
+              <p class="entry-title">&ldquo;Why OpenAI Changed Everything&rdquo;</p>
+              <p class="entry-summary">
+                Calm narration, light visuals &mdash; a well-paced breakdown of GPT-5's architecture.
+              </p>
+              <p class="entry-meta">&mdash; 14m video &bull; added Oct 20</p>
+            </article>
+
+            <article class="entry">
+              <h3>
+                <span class="entry-bullet" aria-hidden="true">&#9635;</span>
+                <span class="entry-source">ContraPoints</span>
+              </h3>
+              <p class="entry-title">&ldquo;The Aesthetic of Dissent&rdquo;</p>
+              <p class="entry-summary">
+                Lush visuals, smart writing, and philosophy of style.
+              </p>
+              <p class="entry-meta">&mdash; 32m video &bull; added Oct 18</p>
+            </article>
           </div>
-        </div>
-        <h3>The UI Layer for Your Information Diet</h3>
+
+          <a class="channel-link" href="#">See all watching &#9654;</a>
+        </section>
+
+        <section class="channel">
+          <header class="channel-heading">
+            <span class="channel-icon" aria-hidden="true">&#128450;</span>
+            <div class="channel-copy">
+              <h2>MISCELLANY</h2>
+              <p class="channel-tags">Blogs &bull; Independent sites</p>
+            </div>
+          </header>
+
+          <div class="entries">
+            <article class="entry">
+              <h3>
+                <span class="entry-bullet" aria-hidden="true">&#9635;</span>
+                <span class="entry-source">Gwern.net</span>
+              </h3>
+              <p class="entry-title">&ldquo;Scaling Hypothesis Revisited&rdquo;</p>
+              <p class="entry-summary">
+                Updated commentary with new citations.
+              </p>
+              <p class="entry-meta">&mdash; 12 min read &bull; added Oct 19</p>
+            </article>
+
+            <article class="entry">
+              <h3>
+                <span class="entry-bullet" aria-hidden="true">&#9635;</span>
+                <span class="entry-source">Ribbonfarm</span>
+              </h3>
+              <p class="entry-title">&ldquo;Narrative Collapse&rdquo;</p>
+              <p class="entry-summary">
+                Old but evergreen &mdash; surfaced because you marked it &ldquo;revisit.&rdquo;
+              </p>
+              <p class="entry-meta">&mdash; 16 min read &bull; first saved May 2024</p>
+            </article>
+          </div>
+        </section>
+
+        <button class="add-source">+ Add new source</button>
+      </main>
+
+      <footer class="feed-footer">
         <p>
-          We explore how personal feeds can make subscription content more intentional, and why filtering by creator beats algorithms…
+          You've subscribed to 22 sources. Your feed only contains things
+          <em>you chose.</em>
         </p>
-        <div class="actions">
-          <button>Mark as read</button>
-          <button>Save</button>
-          <button class="primary">Read on Substack</button>
-        </div>
-      </article>
-    </main>
+      </footer>
+    </div>
   </body>
   </html>
