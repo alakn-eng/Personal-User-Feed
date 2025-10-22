@@ -1,139 +1,196 @@
- <!DOCTYPE html>
-  <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <title>YourFeed Mockup</title>
-    <link rel="stylesheet" href="styles.css" />
-  </head>
-  <body>
-    <div class="app">
-      <header class="feed-intro">
-        <h1>YOUR FEED</h1>
-        <span class="timestamp">last updated 3h ago</span>
-      </header>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Curator’s Desk · Your Feed</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap"
+    rel="stylesheet"
+  />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="navbar" role="banner">
+      <div class="navbar__inner page-width">
+        <div class="navbar__brand">
+          <span class="wordmark">Curator&rsquo;s Desk</span>
+        </div>
+        <nav class="navbar__tabs" aria-label="Primary">
+          <a href="#" class="tab is-active" aria-current="page">Desk</a>
+          <a href="#" class="tab">River</a>
+          <a href="#" class="tab">Archive</a>
+        </nav>
+        <button class="youtube-connect" id="youtube-auth" type="button">
+          Connect YouTube
+        </button>
+        <form class="navbar__search" role="search">
+          <label class="sr-only" for="feed-search">Search feed</label>
+          <input id="feed-search" type="search" name="q" placeholder="Search feed" />
+        </form>
+        <button class="profile-button" type="button" aria-label="Profile and settings">
+          <span class="profile-button__avatar" aria-hidden="true"></span>
+        </button>
+      </div>
+    </header>
 
-      <main class="feed">
-        <section class="channel">
-          <header class="channel-heading">
-            <span class="channel-icon" aria-hidden="true">&#128218;</span>
-            <div class="channel-copy">
-              <h2>READING</h2>
-              <p class="channel-tags">Substack &bull; Longform &bull; Essays</p>
-            </div>
-          </header>
-
-          <div class="entries">
-            <article class="entry">
-              <h3>
-                <span class="entry-bullet" aria-hidden="true">&#9635;</span>
-                <span class="entry-source">The Margins &mdash; Sari Azout</span>
-              </h3>
-              <p class="entry-title">&ldquo;The Software of the Mind&rdquo;</p>
-              <p class="entry-summary">
-                A reflection on how early operating systems shaped our collective imagination.
-              </p>
-              <p class="entry-meta">&mdash; 9 min read &bull; added Oct 20</p>
-            </article>
-
-            <article class="entry">
-              <h3>
-                <span class="entry-bullet" aria-hidden="true">&#9635;</span>
-                <span class="entry-source">Slow Boring &mdash; Matt Yglesias</span>
-              </h3>
-              <p class="entry-title">&ldquo;What Makes a Good Policy Analyst?&rdquo;</p>
-              <p class="entry-summary">
-                A grounded essay about intellectual humility and policy design.
-              </p>
-              <p class="entry-meta">&mdash; 7 min read &bull; added Oct 19</p>
-            </article>
+    <main class="main-content" role="main">
+      <div class="page-width">
+        <section class="page-header">
+          <div class="page-header__copy">
+            <h1>Your Feed</h1>
+            <p class="page-header__subtext">Last updated 3h ago</p>
           </div>
-
-          <a class="channel-link" href="#">See all reading &#9654;</a>
-        </section>
-
-        <section class="channel">
-          <header class="channel-heading">
-            <span class="channel-icon" aria-hidden="true">&#127911;</span>
-            <div class="channel-copy">
-              <h2>WATCHING</h2>
-              <p class="channel-tags">YouTube &bull; Podcasts</p>
-            </div>
-          </header>
-
-          <div class="entries">
-            <article class="entry">
-              <h3>
-                <span class="entry-bullet" aria-hidden="true">&#9635;</span>
-                <span class="entry-source">ColdFusion</span>
-              </h3>
-              <p class="entry-title">&ldquo;Why OpenAI Changed Everything&rdquo;</p>
-              <p class="entry-summary">
-                Calm narration, light visuals &mdash; a well-paced breakdown of GPT-5's architecture.
-              </p>
-              <p class="entry-meta">&mdash; 14m video &bull; added Oct 20</p>
-            </article>
-
-            <article class="entry">
-              <h3>
-                <span class="entry-bullet" aria-hidden="true">&#9635;</span>
-                <span class="entry-source">ContraPoints</span>
-              </h3>
-              <p class="entry-title">&ldquo;The Aesthetic of Dissent&rdquo;</p>
-              <p class="entry-summary">
-                Lush visuals, smart writing, and philosophy of style.
-              </p>
-              <p class="entry-meta">&mdash; 32m video &bull; added Oct 18</p>
-            </article>
-          </div>
-
-          <a class="channel-link" href="#">See all watching &#9654;</a>
-        </section>
-
-        <section class="channel">
-          <header class="channel-heading">
-            <span class="channel-icon" aria-hidden="true">&#128450;</span>
-            <div class="channel-copy">
-              <h2>MISCELLANY</h2>
-              <p class="channel-tags">Blogs &bull; Independent sites</p>
-            </div>
-          </header>
-
-          <div class="entries">
-            <article class="entry">
-              <h3>
-                <span class="entry-bullet" aria-hidden="true">&#9635;</span>
-                <span class="entry-source">Gwern.net</span>
-              </h3>
-              <p class="entry-title">&ldquo;Scaling Hypothesis Revisited&rdquo;</p>
-              <p class="entry-summary">
-                Updated commentary with new citations.
-              </p>
-              <p class="entry-meta">&mdash; 12 min read &bull; added Oct 19</p>
-            </article>
-
-            <article class="entry">
-              <h3>
-                <span class="entry-bullet" aria-hidden="true">&#9635;</span>
-                <span class="entry-source">Ribbonfarm</span>
-              </h3>
-              <p class="entry-title">&ldquo;Narrative Collapse&rdquo;</p>
-              <p class="entry-summary">
-                Old but evergreen &mdash; surfaced because you marked it &ldquo;revisit.&rdquo;
-              </p>
-              <p class="entry-meta">&mdash; 16 min read &bull; first saved May 2024</p>
-            </article>
+          <div class="filter-bar" role="toolbar" aria-label="Feed filters">
+            <button class="filter is-active" type="button" data-filter="all" aria-pressed="true">All</button>
+            <button class="filter" type="button" data-filter="reading">Reading</button>
+            <button class="filter" type="button" data-filter="watching">Watching</button>
+            <button class="filter" type="button" data-filter="misc">Misc</button>
+            <button class="filter" type="button" data-filter="pinned" aria-haspopup="true" aria-expanded="false">Pinned ▾</button>
           </div>
         </section>
 
-        <button class="add-source">+ Add new source</button>
-      </main>
+        <section class="feed-section" aria-labelledby="reading-heading">
+          <header class="section-header">
+            <h2 id="reading-heading">Reading</h2>
+          </header>
+          <div class="feed-grid">
+            <article class="card is-pinned" data-category="reading">
+              <div class="card__source-row">
+                <span class="source-pill">Substack</span>
+              </div>
+              <h3 class="card__title">The Software of the Mind</h3>
+              <p class="card__snippet">
+                A reflection on how early operating systems shaped our collective imagination and the tools we reach for today.
+              </p>
+              <p class="card__meta">
+                <span>Sari Azout</span> • <span>9 min read</span> • <time dateTime="2024-10-20">Oct&nbsp;20</time>
+              </p>
+              <div class="card__actions">
+                <a class="card__link" href="#">Open ↗</a>
+                <button class="pin-button is-pinned" type="button" aria-pressed="true">Pin 📌</button>
+              </div>
+            </article>
 
-      <footer class="feed-footer">
-        <p>
-          You've subscribed to 22 sources. Your feed only contains things
-          <em>you chose.</em>
-        </p>
-      </footer>
-    </div>
-  </body>
-  </html>
+            <article class="card" data-category="reading">
+              <div class="card__source-row">
+                <span class="source-pill">Essay</span>
+              </div>
+              <h3 class="card__title">What Makes a Good Policy Analyst?</h3>
+              <p class="card__snippet">
+                A grounded essay about intellectual humility, designing for the public, and the communication habits that keep teams aligned.
+              </p>
+              <p class="card__meta">
+                <span>Matt Yglesias</span> • <span>7 min read</span> • <time dateTime="2024-10-19">Oct&nbsp;19</time>
+              </p>
+              <div class="card__actions">
+                <a class="card__link" href="#">Open ↗</a>
+                <button class="pin-button" type="button" aria-pressed="false">Pin 📌</button>
+              </div>
+            </article>
+
+            <article class="card" data-category="reading">
+              <div class="card__source-row">
+                <span class="source-pill">Blog</span>
+              </div>
+              <h3 class="card__title">Sensemaking in Slow Media</h3>
+              <p class="card__snippet">
+                Notes on cultivating longer attention spans, intentional reading lists, and creating rituals that help ideas land.
+              </p>
+              <p class="card__meta">
+                <span>Asha Kannan</span> • <span>5 min read</span> • <time dateTime="2024-10-18">Oct&nbsp;18</time>
+              </p>
+              <div class="card__actions">
+                <a class="card__link" href="#">Open ↗</a>
+                <button class="pin-button" type="button" aria-pressed="false">Pin 📌</button>
+              </div>
+            </article>
+          </div>
+          <a class="see-all" href="#">See all reading ▸</a>
+        </section>
+
+        <hr class="divider" aria-hidden="true" />
+
+        <section class="feed-section" aria-labelledby="watching-heading">
+          <header class="section-header">
+            <h2 id="watching-heading">Watching</h2>
+          </header>
+          <div class="feed-grid" id="watching-feed" data-feed="watching" aria-live="polite">
+            <div class="feed-placeholder">Connect YouTube to see your latest videos.</div>
+          </div>
+          <a class="see-all" href="#">See all watching ▸</a>
+        </section>
+
+        <hr class="divider" aria-hidden="true" />
+
+        <section class="feed-section" aria-labelledby="misc-heading">
+          <header class="section-header">
+            <h2 id="misc-heading">Miscellany — Independent Blogs / Articles</h2>
+          </header>
+          <div class="feed-grid">
+            <article class="card" data-category="misc">
+              <div class="card__source-row">
+                <span class="favicon" aria-hidden="true">🌀</span>
+                <span class="source-pill">Gwern.net</span>
+              </div>
+              <h3 class="card__title">Scaling Hypothesis Revisited</h3>
+              <p class="card__snippet">
+                Updated commentary with new citations and a field report on where scaling laws continue to hold.
+              </p>
+              <p class="card__meta">
+                <span>Gwern Branwen</span> • <span>12 min read</span> • <time dateTime="2024-10-19">Oct&nbsp;19</time>
+              </p>
+              <div class="card__actions">
+                <a class="card__link" href="#">Open ↗</a>
+                <button class="pin-button" type="button" aria-pressed="false">Pin 📌</button>
+              </div>
+            </article>
+
+            <article class="card" data-category="misc">
+              <div class="card__source-row">
+                <span class="favicon" aria-hidden="true">🧭</span>
+                <span class="source-pill">Ribbonfarm</span>
+              </div>
+              <h3 class="card__title">Narrative Collapse</h3>
+              <p class="card__snippet">
+                Surfaced from your archive because you marked it for a revisit—still a masterclass on staying curious.
+              </p>
+              <p class="card__meta">
+                <span>Venkatesh Rao</span> • <span>16 min read</span> • <time dateTime="2024-05-12">First saved May&nbsp;2024</time>
+              </p>
+              <div class="card__actions">
+                <a class="card__link" href="#">Open ↗</a>
+                <button class="pin-button" type="button" aria-pressed="false">Pin 📌</button>
+              </div>
+            </article>
+          </div>
+          <a class="see-all" href="#">See all ▸</a>
+        </section>
+
+        <section class="add-source-section">
+          <button class="add-source" type="button">+ Add new source</button>
+          <p class="add-source__hint">Connect Substack, YouTube, podcasts, RSS feeds, and more.</p>
+        </section>
+
+        <section class="empty-state" aria-live="polite" hidden>
+          <div class="empty-state__illustration" role="img" aria-label="Clean desk illustration"></div>
+          <h3>Your feed is clear.</h3>
+          <p class="empty-state__subtext">When new essays arrive, they&rsquo;ll appear here.</p>
+          <button class="empty-state__cta" type="button">Add sources</button>
+        </section>
+      </div>
+    </main>
+
+    <footer class="feed-footer" role="contentinfo">
+      <div class="page-width feed-footer__inner">
+        <p>You&rsquo;ve subscribed to 22 sources.</p>
+        <p>Your feed only contains things you chose.</p>
+      </div>
+    </footer>
+  </div>
+  <script type="module" src="youtube.js"></script>
+</body>
+</html>
