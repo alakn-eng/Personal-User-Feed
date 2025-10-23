@@ -1,92 +1,24 @@
 import { google, youtube_v3 } from "googleapis";
 import type { Credentials } from "google-auth-library";
+import { eq, and } from "drizzle-orm";
+import { LibSQLDatabase } from "drizzle-orm/libsql";
+import { nanoid } from "nanoid";
 import {
-  and,
-  desc,
-  eq,
-  inArray,
-  notInArray,
-} from "drizzle-orm";
-import {
-  AnySQLiteDatabase,
-  integer,
-  primaryKey,
-  sqliteTable,
-  text,
-} from "drizzle-orm/sqlite-core";
-import { InferModel } from "drizzle-orm";
+  connectedSourcesTable,
+  creatorsTable,
+  userSubscriptionsTable,
+  contentItemsTable,
+  ConnectedSource,
+  ContentItem,
+} from "./schema.js";
 
 const OAUTH_SCOPES = ["https://www.googleapis.com/auth/youtube.readonly"] as const;
 
-export const channelsTable = sqliteTable("channels", {
-  channelId: text("channel_id").primaryKey(),
-  title: text("title").notNull(),
-  thumbnailUrl: text("thumbnail_url"),
-  uploadsPlaylistId: text("uploads_playlist_id"),
-  subscribedAt: text("subscribed_at"),
-  lastCheckedAt: text("last_checked_at"),
-});
+// ============================================================================
+// TYPES
+// ============================================================================
 
-export const userChannelsTable = sqliteTable(
-  "user_channels",
-  {
-    userId: text("user_id").notNull(),
-    channelId: text("channel_id")
-      .notNull()
-      .references(() => channelsTable.channelId),
-    subscribedAt: text("subscribed_at"),
-  },
-  (table) => ({
-    pk: primaryKey({ columns: [table.userId, table.channelId] }),
-  })
-);
-
-export const videosTable = sqliteTable("videos", {
-  videoId: text("video_id").primaryKey(),
-  channelId: text("channel_id")
-    .notNull()
-    .references(() => channelsTable.channelId),
-  title: text("title").notNull(),
-  description: text("description"),
-  publishedAt: text("published_at").notNull(),
-  thumbnailUrl: text("thumbnail_url"),
-  duration: text("duration"),
-  addedAt: text("added_at").notNull(),
-});
-
-export const userPinsTable = sqliteTable(
-  "user_pins",
-  {
-    userId: text("user_id").notNull(),
-    videoId: text("video_id")
-      .notNull()
-      .references(() => videosTable.videoId),
-    note: text("note"),
-    pinnedAt: text("pinned_at").notNull(),
-  },
-  (table) => ({
-    pk: primaryKey({ columns: [table.userId, table.videoId] }),
-  })
-);
-
-export const youtubeTokensTable = sqliteTable(
-  "youtube_tokens",
-  {
-    userId: text("user_id").primaryKey(),
-    accessToken: text("access_token"),
-    refreshToken: text("refresh_token"),
-    scope: text("scope"),
-    tokenType: text("token_type"),
-    expiryDate: integer("expiry_date", { mode: "number" }),
-  }
-);
-
-export type ChannelRow = InferModel<typeof channelsTable>;
-export type VideoRow = InferModel<typeof videosTable>;
-export type UserPinRow = InferModel<typeof userPinsTable>;
-export type YoutubeTokenRow = InferModel<typeof youtubeTokensTable>;
-
-export interface ChannelSubscription {
+interface YouTubeChannel {
   channelId: string;
   title: string;
   thumbnailUrl?: string | null;
@@ -94,7 +26,7 @@ export interface ChannelSubscription {
   subscribedAt?: string | null;
 }
 
-export interface UploadVideo {
+interface YouTubeVideo {
   videoId: string;
   channelId: string;
   title: string;
@@ -104,215 +36,279 @@ export interface UploadVideo {
   duration?: string | null;
 }
 
-export interface YoutubeRepository {
-  saveTokens(userId: string, tokens: Credentials): Promise<void>;
-  getTokens(userId: string): Promise<YoutubeTokenRow | null>;
-  upsertChannels(channels: ChannelSubscription[]): Promise<void>;
-  syncUserChannels(userId: string, channelIds: ChannelSubscription[]): Promise<void>;
-  updateUploadsPlaylist(channelId: string, playlistId: string): Promise<void>;
-  listChannelsNeedingPlaylists(channelIds: string[]): Promise<string[]>;
-  upsertVideos(videos: UploadVideo[]): Promise<void>;
-  markChannelsChecked(channelIds: string[], checkedAt: string): Promise<void>;
-  getLatestVideos(userId: string, limit: number): Promise<(VideoRow & { channelTitle: string })[]>;
+// ============================================================================
+// REPOSITORY (Database operations)
+// ============================================================================
+
+export interface YouTubeRepository {
+  // Connection management
+  saveConnection(
+    userId: string,
+    tokens: Credentials,
+    accountId?: string,
+    accountName?: string
+  ): Promise<string>;
+  getConnection(userId: string): Promise<ConnectedSource | null>;
+  updateConnectionTokens(connectionId: string, tokens: Credentials): Promise<void>;
+  updateConnectionSync(connectionId: string, syncedAt: string): Promise<void>;
+
+  // Creators (channels) management
+  upsertCreators(channels: YouTubeChannel[]): Promise<void>;
+  syncUserSubscriptions(
+    userId: string,
+    connectionId: string,
+    channels: YouTubeChannel[]
+  ): Promise<void>;
+
+  // Content (videos) management
+  upsertVideos(videos: YouTubeVideo[]): Promise<void>;
+
+  // Query content
+  getLatestVideos(userId: string, limit: number): Promise<(ContentItem & { creatorName: string })[]>;
 }
 
-export function createYoutubeRepository(db: AnySQLiteDatabase): YoutubeRepository {
+export function createYouTubeRepository(db: LibSQLDatabase<Record<string, never>>): YouTubeRepository {
   return {
-    async saveTokens(userId, tokens) {
-      await db
-        .insert(youtubeTokensTable)
-        .values({
-          userId,
-          accessToken: tokens.access_token ?? null,
-          refreshToken: tokens.refresh_token ?? null,
-          scope: tokens.scope ?? null,
-          tokenType: tokens.token_type ?? null,
-          expiryDate: tokens.expiry_date ?? null,
-        })
-        .onConflictDoUpdate({
-          target: youtubeTokensTable.userId,
-          set: {
-            accessToken: tokens.access_token ?? null,
-            refreshToken: tokens.refresh_token ?? null,
-            scope: tokens.scope ?? null,
-            tokenType: tokens.token_type ?? null,
-            expiryDate: tokens.expiry_date ?? null,
-          },
-        });
+    async saveConnection(userId, tokens, accountId, accountName) {
+      const connectionId = nanoid();
+      const now = new Date().toISOString();
+
+      await db.insert(connectedSourcesTable).values({
+        connectionId,
+        userId,
+        sourceType: "youtube",
+        sourceAccountId: accountId ?? null,
+        sourceAccountName: accountName ?? null,
+        accessToken: tokens.access_token ?? null,
+        refreshToken: tokens.refresh_token ?? null,
+        tokenExpiresAt: tokens.expiry_date ?? null,
+        metadata: null,
+        connectedAt: now,
+        lastSyncedAt: now,
+        isActive: true,
+      });
+
+      return connectionId;
     },
 
-    async getTokens(userId) {
+    async getConnection(userId) {
       const rows = await db
         .select()
-        .from(youtubeTokensTable)
-        .where(eq(youtubeTokensTable.userId, userId))
-        .limit(1);
-      return rows.at(0) ?? null;
-    },
-
-    async upsertChannels(channels) {
-      if (!channels.length) return;
-      const now = new Date().toISOString();
-      await db
-        .insert(channelsTable)
-        .values(
-          channels.map((channel) => ({
-            channelId: channel.channelId,
-            title: channel.title,
-            thumbnailUrl: channel.thumbnailUrl ?? null,
-            uploadsPlaylistId: channel.uploadsPlaylistId ?? null,
-            subscribedAt: channel.subscribedAt ?? now,
-            lastCheckedAt: now,
-          }))
-        )
-        .onConflictDoUpdate({
-          target: channelsTable.channelId,
-          set: {
-            title: eqExcluded(channelsTable.title),
-            thumbnailUrl: eqExcluded(channelsTable.thumbnailUrl),
-            uploadsPlaylistId: eqExcluded(channelsTable.uploadsPlaylistId),
-            subscribedAt: eqExcluded(channelsTable.subscribedAt),
-            lastCheckedAt: eqExcluded(channelsTable.lastCheckedAt),
-          },
-        });
-    },
-
-    async syncUserChannels(userId, subscriptions) {
-      const channelIds = subscriptions.map((item) => item.channelId);
-      if (channelIds.length) {
-        await db
-          .insert(userChannelsTable)
-          .values(
-            subscriptions.map((item) => ({
-              userId,
-              channelId: item.channelId,
-              subscribedAt: item.subscribedAt ?? new Date().toISOString(),
-            }))
-          )
-          .onConflictDoUpdate({
-            target: userChannelsTable.pk,
-            set: {
-              subscribedAt: eqExcluded(userChannelsTable.subscribedAt),
-            },
-          });
-      }
-
-      const existing = await db
-        .select({ channelId: userChannelsTable.channelId })
-        .from(userChannelsTable)
-        .where(eq(userChannelsTable.userId, userId));
-
-      const keep = new Set(channelIds);
-      const toRemove = existing
-        .map((row) => row.channelId)
-        .filter((id) => !keep.has(id));
-
-      if (toRemove.length) {
-        await db
-          .delete(userChannelsTable)
-          .where(
-            and(
-              eq(userChannelsTable.userId, userId),
-              inArray(userChannelsTable.channelId, toRemove)
-            )
-          );
-      }
-    },
-
-    async updateUploadsPlaylist(channelId, playlistId) {
-      await db
-        .update(channelsTable)
-        .set({ uploadsPlaylistId: playlistId })
-        .where(eq(channelsTable.channelId, channelId));
-    },
-
-    async listChannelsNeedingPlaylists(channelIds) {
-      if (!channelIds.length) return [];
-      const rows = await db
-        .select({
-          channelId: channelsTable.channelId,
-        })
-        .from(channelsTable)
+        .from(connectedSourcesTable)
         .where(
           and(
-            inArray(channelsTable.channelId, channelIds),
-            eq(channelsTable.uploadsPlaylistId, null)
+            eq(connectedSourcesTable.userId, userId),
+            eq(connectedSourcesTable.sourceType, "youtube"),
+            eq(connectedSourcesTable.isActive, true)
           )
-        );
-      return rows.map((row) => row.channelId);
+        )
+        .limit(1);
+
+      return rows[0] ?? null;
+    },
+
+    async updateConnectionTokens(connectionId, tokens) {
+      await db
+        .update(connectedSourcesTable)
+        .set({
+          accessToken: tokens.access_token ?? null,
+          refreshToken: tokens.refresh_token ?? null,
+          tokenExpiresAt: tokens.expiry_date ?? null,
+        })
+        .where(eq(connectedSourcesTable.connectionId, connectionId));
+    },
+
+    async updateConnectionSync(connectionId, syncedAt) {
+      await db
+        .update(connectedSourcesTable)
+        .set({ lastSyncedAt: syncedAt })
+        .where(eq(connectedSourcesTable.connectionId, connectionId));
+    },
+
+    async upsertCreators(channels) {
+      if (!channels.length) return;
+      const now = new Date().toISOString();
+
+      for (const channel of channels) {
+        const creatorId = `youtube-${channel.channelId}`;
+
+        // Check if creator exists
+        const existing = await db
+          .select()
+          .from(creatorsTable)
+          .where(eq(creatorsTable.creatorId, creatorId))
+          .limit(1);
+
+        const metadata = channel.uploadsPlaylistId
+          ? JSON.stringify({ uploadsPlaylistId: channel.uploadsPlaylistId })
+          : null;
+
+        if (existing.length > 0) {
+          // Update existing
+          await db
+            .update(creatorsTable)
+            .set({
+              name: channel.title,
+              avatarUrl: channel.thumbnailUrl ?? null,
+              metadata,
+              lastUpdatedAt: now,
+            })
+            .where(eq(creatorsTable.creatorId, creatorId));
+        } else {
+          // Insert new
+          await db.insert(creatorsTable).values({
+            creatorId,
+            sourceType: "youtube",
+            externalId: channel.channelId,
+            name: channel.title,
+            handle: null,
+            bio: null,
+            avatarUrl: channel.thumbnailUrl ?? null,
+            profileUrl: `https://youtube.com/channel/${channel.channelId}`,
+            subscriberCount: null,
+            metadata,
+            firstSeenAt: now,
+            lastUpdatedAt: now,
+          });
+        }
+      }
+    },
+
+    async syncUserSubscriptions(userId, connectionId, channels) {
+      if (!channels.length) return;
+      const now = new Date().toISOString();
+
+      for (const channel of channels) {
+        const creatorId = `youtube-${channel.channelId}`;
+
+        // Check if subscription exists
+        const existing = await db
+          .select()
+          .from(userSubscriptionsTable)
+          .where(
+            and(
+              eq(userSubscriptionsTable.userId, userId),
+              eq(userSubscriptionsTable.creatorId, creatorId)
+            )
+          )
+          .limit(1);
+
+        if (existing.length === 0) {
+          // Insert new subscription
+          await db.insert(userSubscriptionsTable).values({
+            userId,
+            creatorId,
+            connectionId,
+            subscribedAt: channel.subscribedAt ?? now,
+            isActive: true,
+            notificationsEnabled: true,
+          });
+        }
+      }
     },
 
     async upsertVideos(videos) {
       if (!videos.length) return;
       const now = new Date().toISOString();
-      await db
-        .insert(videosTable)
-        .values(
-          videos.map((video) => ({
-            videoId: video.videoId,
-            channelId: video.channelId,
+
+      for (const video of videos) {
+        const contentId = `youtube-${video.videoId}`;
+        const creatorId = `youtube-${video.channelId}`;
+
+        // Check if content exists
+        const existing = await db
+          .select()
+          .from(contentItemsTable)
+          .where(eq(contentItemsTable.contentId, contentId))
+          .limit(1);
+
+        if (existing.length > 0) {
+          // Update existing
+          await db
+            .update(contentItemsTable)
+            .set({
+              title: video.title,
+              description: video.description ?? null,
+              thumbnailUrl: video.thumbnailUrl ?? null,
+              duration: video.duration ? parseDurationToSeconds(video.duration) : null,
+              updatedAt: now,
+            })
+            .where(eq(contentItemsTable.contentId, contentId));
+        } else {
+          // Insert new
+          await db.insert(contentItemsTable).values({
+            contentId,
+            creatorId,
+            sourceType: "youtube",
+            externalId: video.videoId,
             title: video.title,
             description: video.description ?? null,
-            publishedAt: video.publishedAt,
+            contentUrl: `https://www.youtube.com/watch?v=${video.videoId}`,
             thumbnailUrl: video.thumbnailUrl ?? null,
-            duration: video.duration ?? null,
+            mediaType: "video",
+            duration: video.duration ? parseDurationToSeconds(video.duration) : null,
+            wordCount: null,
+            publishedAt: video.publishedAt,
             addedAt: now,
-          }))
-        )
-        .onConflictDoUpdate({
-          target: videosTable.videoId,
-          set: {
-            title: eqExcluded(videosTable.title),
-            description: eqExcluded(videosTable.description),
-            publishedAt: eqExcluded(videosTable.publishedAt),
-            thumbnailUrl: eqExcluded(videosTable.thumbnailUrl),
-            duration: eqExcluded(videosTable.duration),
-          },
-        });
-    },
-
-    async markChannelsChecked(channelIds, checkedAt) {
-      if (!channelIds.length) return;
-      await db
-        .update(channelsTable)
-        .set({ lastCheckedAt: checkedAt })
-        .where(inArray(channelsTable.channelId, channelIds));
+            updatedAt: null,
+            viewCount: null,
+            likeCount: null,
+            commentCount: null,
+            metadata: null,
+            isArchived: false,
+            contentHash: null,
+          });
+        }
+      }
     },
 
     async getLatestVideos(userId, limit) {
       const rows = await db
         .select({
-          videoId: videosTable.videoId,
-          channelId: videosTable.channelId,
-          title: videosTable.title,
-          description: videosTable.description,
-          publishedAt: videosTable.publishedAt,
-          thumbnailUrl: videosTable.thumbnailUrl,
-          duration: videosTable.duration,
-          addedAt: videosTable.addedAt,
-          channelTitle: channelsTable.title,
+          contentId: contentItemsTable.contentId,
+          creatorId: contentItemsTable.creatorId,
+          sourceType: contentItemsTable.sourceType,
+          externalId: contentItemsTable.externalId,
+          title: contentItemsTable.title,
+          description: contentItemsTable.description,
+          contentUrl: contentItemsTable.contentUrl,
+          thumbnailUrl: contentItemsTable.thumbnailUrl,
+          mediaType: contentItemsTable.mediaType,
+          duration: contentItemsTable.duration,
+          wordCount: contentItemsTable.wordCount,
+          publishedAt: contentItemsTable.publishedAt,
+          addedAt: contentItemsTable.addedAt,
+          updatedAt: contentItemsTable.updatedAt,
+          viewCount: contentItemsTable.viewCount,
+          likeCount: contentItemsTable.likeCount,
+          commentCount: contentItemsTable.commentCount,
+          metadata: contentItemsTable.metadata,
+          isArchived: contentItemsTable.isArchived,
+          contentHash: contentItemsTable.contentHash,
+          creatorName: creatorsTable.name,
         })
-        .from(videosTable)
+        .from(contentItemsTable)
+        .innerJoin(creatorsTable, eq(creatorsTable.creatorId, contentItemsTable.creatorId))
         .innerJoin(
-          userChannelsTable,
+          userSubscriptionsTable,
           and(
-            eq(userChannelsTable.channelId, videosTable.channelId),
-            eq(userChannelsTable.userId, userId)
+            eq(userSubscriptionsTable.creatorId, contentItemsTable.creatorId),
+            eq(userSubscriptionsTable.userId, userId),
+            eq(userSubscriptionsTable.isActive, true)
           )
         )
-        .innerJoin(channelsTable, eq(channelsTable.channelId, videosTable.channelId))
-        .orderBy(desc(videosTable.publishedAt))
+        .where(eq(contentItemsTable.sourceType, "youtube"))
+        .orderBy(contentItemsTable.publishedAt)
         .limit(limit);
 
       return rows;
     },
-  } satisfies YoutubeRepository;
+  };
 }
 
-function eqExcluded<T>(column: T): T {
-  // Helper to satisfy TypeScript when using onConflictDoUpdate.
-  return column;
-}
+// ============================================================================
+// OAUTH HELPERS
+// ============================================================================
 
 function createOAuthClient() {
   const clientId = process.env.GOOGLE_CLIENT_ID;
@@ -343,48 +339,54 @@ export async function exchangeCodeForTokens(code: string) {
   return { client, tokens };
 }
 
-export async function refreshAccessToken(tokens: YoutubeTokenRow) {
-  if (!tokens.refreshToken) {
-    throw new Error("Missing refresh token for YouTube account");
+export async function refreshAccessToken(connection: ConnectedSource) {
+  if (!connection.refreshToken) {
+    throw new Error("Missing refresh token for YouTube connection");
   }
+
   const client = createOAuthClient();
   client.setCredentials({
-    access_token: tokens.accessToken ?? undefined,
-    refresh_token: tokens.refreshToken ?? undefined,
-    scope: tokens.scope ?? undefined,
-    token_type: tokens.tokenType ?? undefined,
-    expiry_date: tokens.expiryDate ?? undefined,
+    access_token: connection.accessToken ?? undefined,
+    refresh_token: connection.refreshToken ?? undefined,
+    token_type: "Bearer",
+    expiry_date: connection.tokenExpiresAt ?? undefined,
   });
+
   const { credentials } = await client.refreshAccessToken();
   return { client, credentials };
 }
 
-export class YoutubeIngestionService {
+// ============================================================================
+// YOUTUBE INGESTION SERVICE
+// ============================================================================
+
+export class YouTubeIngestionService {
   private readonly youtube: youtube_v3.Youtube;
 
   constructor(
-    private readonly repo: YoutubeRepository,
+    private readonly repo: YouTubeRepository,
     private readonly client: youtube_v3.Youtube,
-    private readonly userId: string
+    private readonly userId: string,
+    private readonly connectionId: string
   ) {
     this.youtube = client;
   }
 
-  static async fromTokens(repo: YoutubeRepository, userId: string) {
-    const stored = await repo.getTokens(userId);
-    if (!stored) {
+  static async fromConnection(repo: YouTubeRepository, userId: string) {
+    const connection = await repo.getConnection(userId);
+    if (!connection) {
       throw new Error("User has not connected YouTube yet");
     }
 
-    const { client, credentials } = await refreshAccessToken(stored);
-    await repo.saveTokens(userId, credentials);
+    const { client, credentials } = await refreshAccessToken(connection);
+    await repo.updateConnectionTokens(connection.connectionId, credentials);
 
     const youtube = google.youtube({ version: "v3", auth: client });
-    return new YoutubeIngestionService(repo, youtube, userId);
+    return new YouTubeIngestionService(repo, youtube, userId, connection.connectionId);
   }
 
   async syncUserSubscriptions() {
-    const subscriptions: ChannelSubscription[] = [];
+    const channels: YouTubeChannel[] = [];
     let nextPageToken: string | undefined;
 
     do {
@@ -399,38 +401,34 @@ export class YoutubeIngestionService {
       for (const item of items) {
         const channelId = item.snippet?.resourceId?.channelId;
         if (!channelId) continue;
-        subscriptions.push({
+
+        channels.push({
           channelId,
           title: item.snippet?.title ?? "Untitled channel",
           thumbnailUrl: item.snippet?.thumbnails?.default?.url,
-          subscribedAt: item.snippet?.publishedAt ?? null,
           uploadsPlaylistId: item.contentDetails?.relatedPlaylists?.uploads ?? null,
+          subscribedAt: item.snippet?.publishedAt ?? null,
         });
       }
 
       nextPageToken = response.data.nextPageToken ?? undefined;
     } while (nextPageToken);
 
-    await this.repo.upsertChannels(subscriptions);
-    await this.repo.syncUserChannels(this.userId, subscriptions);
+    await this.repo.upsertCreators(channels);
+    await this.repo.syncUserSubscriptions(this.userId, this.connectionId, channels);
 
-    const missing = await this.repo.listChannelsNeedingPlaylists(
-      subscriptions.map((item) => item.channelId)
-    );
-    if (missing.length) {
-      await this.populateUploadPlaylists(missing);
-    }
+    return channels;
   }
 
   async syncUploads(limitPerChannel = 20) {
     const now = new Date().toISOString();
-    const subscriptions = await this.repo.getLatestVideos(this.userId, 0);
-    const channelIds = subscriptions.map((item) => item.channelId);
-    const uniqueIds = Array.from(new Set(channelIds));
-    const videos: UploadVideo[] = [];
 
-    for (const channelId of uniqueIds) {
-      const playlistId = await this.ensureUploadPlaylist(channelId);
+    // Get all channels user is subscribed to
+    const channels = await this.getSubscribedChannels();
+    const videos: YouTubeVideo[] = [];
+
+    for (const channel of channels) {
+      const playlistId = await this.getUploadsPlaylist(channel.channelId);
       if (!playlistId) continue;
 
       const response = await this.youtube.playlistItems.list({
@@ -444,13 +442,15 @@ export class YoutubeIngestionService {
         const contentDetails = item.contentDetails;
         const videoId = contentDetails?.videoId;
         if (!snippet || !videoId) continue;
+
         videos.push({
           videoId,
-          channelId,
+          channelId: channel.channelId,
           title: snippet.title ?? "Untitled video",
           description: snippet.description ?? null,
           publishedAt: snippet.publishedAt ?? now,
           thumbnailUrl: snippet.thumbnails?.medium?.url ?? snippet.thumbnails?.default?.url ?? null,
+          duration: null, // Would need separate API call to get duration
         });
       }
     }
@@ -459,48 +459,49 @@ export class YoutubeIngestionService {
       await this.repo.upsertVideos(videos);
     }
 
-    await this.repo.markChannelsChecked(uniqueIds, now);
+    await this.repo.updateConnectionSync(this.connectionId, now);
   }
 
   async latestVideos(limit = 5) {
     return this.repo.getLatestVideos(this.userId, limit);
   }
 
-  private async ensureUploadPlaylist(channelId: string) {
-    const missing = await this.repo.listChannelsNeedingPlaylists([channelId]);
-    if (!missing.length) {
-      const playlist = await this.getStoredPlaylist(channelId);
-      return playlist;
-    }
+  private async getSubscribedChannels(): Promise<YouTubeChannel[]> {
+    const response = await this.youtube.subscriptions.list({
+      part: ["snippet", "contentDetails"],
+      mine: true,
+      maxResults: 50,
+    });
 
-    await this.populateUploadPlaylists([channelId]);
-    return this.getStoredPlaylist(channelId);
+    return (response.data.items ?? [])
+      .filter((item) => item.snippet?.resourceId?.channelId)
+      .map((item) => ({
+        channelId: item.snippet!.resourceId!.channelId!,
+        title: item.snippet?.title ?? "Untitled",
+        thumbnailUrl: item.snippet?.thumbnails?.default?.url,
+        uploadsPlaylistId: item.contentDetails?.relatedPlaylists?.uploads ?? null,
+        subscribedAt: item.snippet?.publishedAt ?? null,
+      }));
   }
 
-  private async populateUploadPlaylists(channelIds: string[]) {
-    const chunkSize = 50;
-    for (let i = 0; i < channelIds.length; i += chunkSize) {
-      const chunk = channelIds.slice(i, i + chunkSize);
-      const response = await this.youtube.channels.list({
-        id: chunk,
-        part: ["contentDetails"],
-        maxResults: chunk.length,
-      });
+  private async getUploadsPlaylist(channelId: string): Promise<string | null> {
+    const response = await this.youtube.channels.list({
+      id: [channelId],
+      part: ["contentDetails"],
+    });
 
-      for (const item of response.data.items ?? []) {
-        const uploads = item.contentDetails?.relatedPlaylists?.uploads;
-        const id = item.id;
-        if (!uploads || !id) continue;
-        await this.repo.updateUploadsPlaylist(id, uploads);
-      }
-    }
-  }
-
-  private async getStoredPlaylist(channelId: string) {
-    const rows = await (this.repo as YoutubeRepository & {
-      getPlaylistForChannel?: (channelId: string) => Promise<string | null>;
-    }).getPlaylistForChannel?.(channelId);
-    return rows ?? null;
+    return response.data.items?.[0]?.contentDetails?.relatedPlaylists?.uploads ?? null;
   }
 }
 
+// ============================================================================
+// UTILITIES
+// ============================================================================
+
+function parseDurationToSeconds(isoDuration: string): number {
+  const match = /PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/.exec(isoDuration);
+  if (!match) return 0;
+
+  const [, hours, minutes, seconds] = match;
+  return (parseInt(hours || "0") * 3600) + (parseInt(minutes || "0") * 60) + parseInt(seconds || "0");
+}
