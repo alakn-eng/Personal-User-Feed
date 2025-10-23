@@ -5,12 +5,14 @@ import cookieParser from "cookie-parser";
 import { drizzle } from "drizzle-orm/libsql";
 import { createClient } from "@libsql/client";
 import { google } from "googleapis";
+import { eq } from "drizzle-orm";
 import {
   createYouTubeRepository,
   createAuthUrl,
   exchangeCodeForTokens,
   YouTubeIngestionService,
 } from "./youtube.js";
+import { usersTable } from "./schema.js";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -51,6 +53,34 @@ const client = createClient({
 
 const db = drizzle(client);
 const youtubeRepo = createYouTubeRepository(db);
+
+// ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
+
+async function ensureUserExists(userId: string) {
+  // Check if user exists
+  const existing = await db
+    .select()
+    .from(usersTable)
+    .where(eq(usersTable.userId, userId))
+    .limit(1);
+
+  if (existing.length === 0) {
+    // Create user if doesn't exist
+    const now = new Date().toISOString();
+    await db.insert(usersTable).values({
+      userId,
+      email: null,
+      phoneNumber: null,
+      displayName: "Temp User",
+      avatarUrl: null,
+      createdAt: now,
+      lastLoginAt: now,
+    });
+    console.log(`✅ Created user: ${userId}`);
+  }
+}
 
 // ============================================================================
 // MIDDLEWARE
@@ -143,9 +173,15 @@ app.get("/auth/youtube/callback", async (req, res) => {
     // Exchange the authorization code for tokens
     const { client: oauthClient, tokens } = await exchangeCodeForTokens(code);
 
+    // Set credentials on the OAuth client
+    oauthClient.setCredentials(tokens);
+
     // TODO: Replace with real user auth - for now use temp user ID
     const userId = req.session.userId || "temp-user";
     req.session.userId = userId;
+
+    // Ensure user exists in database first
+    await ensureUserExists(userId);
 
     // Save YouTube connection
     const connectionId = await youtubeRepo.saveConnection(userId, tokens);
