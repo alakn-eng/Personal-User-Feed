@@ -11,8 +11,8 @@ import {
   createAuthUrl,
   exchangeCodeForTokens,
   YouTubeIngestionService,
-} from "./youtube.js";
-import { usersTable } from "./schema.js";
+} from "./youtube";
+import { usersTable } from "./schema";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -222,7 +222,26 @@ app.get("/api/youtube/videos", async (req, res) => {
 
     // Get stored connection and create service
     const service = await YouTubeIngestionService.fromConnection(youtubeRepo, userId);
-    const videos = await service.latestVideos(limit);
+    const rawVideos = await service.latestVideos(limit);
+
+    console.log(`📹 Found ${rawVideos.length} videos for user ${userId}`);
+    if (rawVideos.length > 0) {
+      console.log(`   First video: ${rawVideos[0].title}`);
+    }
+
+    // Map database format to frontend format
+    const videos = rawVideos.map((video) => ({
+      videoId: video.externalId,
+      channelId: video.creatorId.replace('youtube-', ''),
+      channelTitle: video.creatorName,
+      title: video.title,
+      description: video.description,
+      thumbnailUrl: video.thumbnailUrl,
+      publishedAt: video.publishedAt,
+      duration: video.duration,
+      contentUrl: video.contentUrl,
+      isPinned: false, // TODO: Check user_pins table
+    }));
 
     res.json({ videos });
   } catch (error) {

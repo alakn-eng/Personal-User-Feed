@@ -703,3 +703,39 @@ input {
     scroll-behavior: auto !important;
   }
 }
+
+
+/* Limit selector styles */
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.limit-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.limit-select {
+  padding: 4px 8px;
+  border: 1px solid var(--outline);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--text-primary);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.limit-select:hover {
+  border-color: var(--accent);
+}
+
+.limit-select:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}

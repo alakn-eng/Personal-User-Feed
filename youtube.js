@@ -1,5 +1,5 @@
 const AUTH_ENDPOINT = "/auth/youtube";
-const VIDEOS_ENDPOINT = "/api/youtube/videos?limit=5";
+let VIDEO_LIMIT = 5; // Default limit
 
 const watchingFeed = document.querySelector("#watching-feed");
 const connectButton = document.querySelector("#youtube-auth");
@@ -12,12 +12,41 @@ async function init() {
     window.location.href = AUTH_ENDPOINT;
   });
 
+  // Add limit selector
+  createLimitSelector();
+
   await hydrateWatchingFeed();
+}
+
+function createLimitSelector() {
+  const watchingSection = document.querySelector('[aria-labelledby="watching-heading"]');
+  if (!watchingSection) return;
+
+  const header = watchingSection.querySelector('.section-header');
+  if (!header) return;
+
+  const limitControl = document.createElement('div');
+  limitControl.className = 'limit-control';
+  limitControl.innerHTML = `
+    <label for="video-limit">Show: </label>
+    <select id="video-limit" class="limit-select">
+      <option value="3">3 videos</option>
+      <option value="5" selected>5 videos</option>
+    </select>
+  `;
+
+  header.appendChild(limitControl);
+
+  const select = limitControl.querySelector('#video-limit');
+  select.addEventListener('change', async (e) => {
+    VIDEO_LIMIT = parseInt(e.target.value);
+    await hydrateWatchingFeed();
+  });
 }
 
 async function hydrateWatchingFeed() {
   try {
-    const response = await fetch(VIDEOS_ENDPOINT, {
+    const response = await fetch(`/api/youtube/videos?limit=${VIDEO_LIMIT}`, {
       credentials: "include",
     });
 
@@ -57,7 +86,6 @@ function renderVideos(videos) {
   watchingFeed.innerHTML = "";
 
   videos
-    .slice(0, 5)
     .map(mapVideoToCard)
     .forEach((card) => watchingFeed.appendChild(card));
 }

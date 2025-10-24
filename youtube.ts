@@ -1,6 +1,6 @@
 import { google, youtube_v3 } from "googleapis";
 import type { Credentials } from "google-auth-library";
-import { eq, and } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import { LibSQLDatabase } from "drizzle-orm/libsql";
 import { nanoid } from "nanoid";
 import {
@@ -10,7 +10,7 @@ import {
   contentItemsTable,
   ConnectedSource,
   ContentItem,
-} from "./schema.js";
+} from "./schema";
 
 const OAUTH_SCOPES = ["https://www.googleapis.com/auth/youtube.readonly"] as const;
 
@@ -298,7 +298,7 @@ export function createYouTubeRepository(db: LibSQLDatabase<Record<string, never>
           )
         )
         .where(eq(contentItemsTable.sourceType, "youtube"))
-        .orderBy(contentItemsTable.publishedAt)
+        .orderBy(desc(contentItemsTable.publishedAt))
         .limit(limit);
 
       return rows;
@@ -425,17 +425,25 @@ export class YouTubeIngestionService {
 
     // Get all channels user is subscribed to
     const channels = await this.getSubscribedChannels();
+    console.log(`   Found ${channels.length} subscribed channels`);
+
     const videos: YouTubeVideo[] = [];
 
     for (const channel of channels) {
       const playlistId = await this.getUploadsPlaylist(channel.channelId);
-      if (!playlistId) continue;
+      if (!playlistId) {
+        console.log(`   ⚠️  No uploads playlist for channel: ${channel.title}`);
+        continue;
+      }
 
       const response = await this.youtube.playlistItems.list({
         playlistId,
         part: ["snippet", "contentDetails"],
         maxResults: limitPerChannel,
       });
+
+      const itemCount = response.data.items?.length ?? 0;
+      console.log(`   📺 Channel "${channel.title}": ${itemCount} videos`);
 
       for (const item of response.data.items ?? []) {
         const snippet = item.snippet;
@@ -454,6 +462,8 @@ export class YouTubeIngestionService {
         });
       }
     }
+
+    console.log(`   💾 Saving ${videos.length} total videos to database`);
 
     if (videos.length) {
       await this.repo.upsertVideos(videos);
