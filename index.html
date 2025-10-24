@@ -57,57 +57,8 @@
           <header class="section-header">
             <h2 id="reading-heading">Reading</h2>
           </header>
-          <div class="feed-grid">
-            <article class="card is-pinned" data-category="reading">
-              <div class="card__source-row">
-                <span class="source-pill">Substack</span>
-              </div>
-              <h3 class="card__title">The Software of the Mind</h3>
-              <p class="card__snippet">
-                A reflection on how early operating systems shaped our collective imagination and the tools we reach for today.
-              </p>
-              <p class="card__meta">
-                <span>Sari Azout</span> • <span>9 min read</span> • <time dateTime="2024-10-20">Oct&nbsp;20</time>
-              </p>
-              <div class="card__actions">
-                <a class="card__link" href="#">Open ↗</a>
-                <button class="pin-button is-pinned" type="button" aria-pressed="true">Pin 📌</button>
-              </div>
-            </article>
-
-            <article class="card" data-category="reading">
-              <div class="card__source-row">
-                <span class="source-pill">Essay</span>
-              </div>
-              <h3 class="card__title">What Makes a Good Policy Analyst?</h3>
-              <p class="card__snippet">
-                A grounded essay about intellectual humility, designing for the public, and the communication habits that keep teams aligned.
-              </p>
-              <p class="card__meta">
-                <span>Matt Yglesias</span> • <span>7 min read</span> • <time dateTime="2024-10-19">Oct&nbsp;19</time>
-              </p>
-              <div class="card__actions">
-                <a class="card__link" href="#">Open ↗</a>
-                <button class="pin-button" type="button" aria-pressed="false">Pin 📌</button>
-              </div>
-            </article>
-
-            <article class="card" data-category="reading">
-              <div class="card__source-row">
-                <span class="source-pill">Blog</span>
-              </div>
-              <h3 class="card__title">Sensemaking in Slow Media</h3>
-              <p class="card__snippet">
-                Notes on cultivating longer attention spans, intentional reading lists, and creating rituals that help ideas land.
-              </p>
-              <p class="card__meta">
-                <span>Asha Kannan</span> • <span>5 min read</span> • <time dateTime="2024-10-18">Oct&nbsp;18</time>
-              </p>
-              <div class="card__actions">
-                <a class="card__link" href="#">Open ↗</a>
-                <button class="pin-button" type="button" aria-pressed="false">Pin 📌</button>
-              </div>
-            </article>
+          <div class="feed-grid" id="reading-feed" data-feed="reading" aria-live="polite">
+            <div class="feed-placeholder">Connect Gmail to see your latest Substack posts.</div>
           </div>
           <a class="see-all" href="#">See all reading ▸</a>
         </section>
@@ -192,5 +143,7 @@
     </footer>
   </div>
   <script type="module" src="youtube.js"></script>
+  <script type="module" src="gmail-button.js"></script>
+  <script type="module" src="substack.js"></script>
 </body>
 </html>

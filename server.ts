@@ -13,6 +13,7 @@ import {
   YouTubeIngestionService,
 } from "./youtube";
 import { usersTable } from "./schema";
+import { createGmailAuthRouter, createGmailRepository } from "./src/gmail";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -40,6 +41,16 @@ const youtubeEnabled = !!(googleClientId && googleClientSecret && googleRedirect
 if (!youtubeEnabled) {
   console.warn("⚠️  YouTube integration disabled - missing Google OAuth credentials");
   console.warn("   Set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and GOOGLE_REDIRECT_URI to enable");
+}
+
+// Check Gmail feature flag and credentials
+const gmailEnabled =
+  process.env.FEATURE_GMAIL_INGEST === "on" &&
+  !!(googleClientId && googleClientSecret && process.env.ENCRYPTION_KEY);
+
+if (process.env.FEATURE_GMAIL_INGEST === "on" && !gmailEnabled) {
+  console.warn("⚠️  Gmail integration disabled - missing credentials or encryption key");
+  console.warn("   Set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, ENCRYPTION_KEY, and FEATURE_GMAIL_INGEST=on");
 }
 
 // ============================================================================
@@ -130,6 +141,7 @@ app.get("/api/config", (req, res) => {
   res.json({
     features: {
       youtube: youtubeEnabled,
+      gmail: gmailEnabled,
       substack: false,
       twitter: false,
       rss: false,
@@ -282,6 +294,85 @@ app.post("/api/youtube/pins/:videoId", async (req, res) => {
     res.status(500).json({ error: "Failed to toggle pin" });
   }
 });
+
+// ============================================================================
+// GMAIL ROUTES (Feature-flagged)
+// ============================================================================
+
+if (gmailEnabled) {
+  const gmailRouter = createGmailAuthRouter(db);
+  app.use("/integrations/gmail", gmailRouter);
+
+  // Gmail connection status endpoint
+  app.get("/api/gmail/status", async (req, res) => {
+    try {
+      const userId = req.session.userId || "temp-user";
+      const gmailRepo = createGmailRepository(db);
+      const connection = await gmailRepo.getConnection(userId);
+
+      res.json({
+        connected: !!connection,
+        gmailAddress: connection?.gmailAddress || null,
+      });
+    } catch (error) {
+      res.json({ connected: false });
+    }
+  });
+
+  // Substack posts endpoint
+  app.get("/api/substack/posts", async (req, res) => {
+    try {
+      const userId = req.session.userId || "temp-user";
+      const limit = parseInt(req.query.limit as string) || 5;
+
+      // Query content_items for Substack posts
+      const { contentItemsTable, creatorsTable, userSubscriptionsTable } = await import("./schema");
+      const { eq, and, desc } = await import("drizzle-orm");
+
+      // Query Substack posts - no subscription check needed since we ingested from user's Gmail
+      const rawPosts = await db
+        .select({
+          contentId: contentItemsTable.contentId,
+          creatorId: contentItemsTable.creatorId,
+          externalId: contentItemsTable.externalId,
+          title: contentItemsTable.title,
+          description: contentItemsTable.description,
+          contentUrl: contentItemsTable.contentUrl,
+          thumbnailUrl: contentItemsTable.thumbnailUrl,
+          publishedAt: contentItemsTable.publishedAt,
+          creatorName: creatorsTable.name,
+        })
+        .from(contentItemsTable)
+        .innerJoin(creatorsTable, eq(creatorsTable.creatorId, contentItemsTable.creatorId))
+        .where(eq(contentItemsTable.sourceType, "substack"))
+        .orderBy(desc(contentItemsTable.publishedAt))
+        .limit(limit);
+
+      console.log(`📰 Found ${rawPosts.length} Substack posts for user ${userId}`);
+
+      // Map to frontend format
+      const posts = rawPosts.map((post) => ({
+        postId: post.externalId,
+        author: post.creatorName,
+        title: post.title,
+        snippet: post.description || "",
+        postUrl: post.contentUrl,
+        publishedAt: post.publishedAt,
+        isPinned: false, // TODO: Check user_pins table
+      }));
+
+      res.json({ posts });
+    } catch (error) {
+      console.error("Failed to fetch Substack posts:", error);
+      res.status(500).json({
+        error: "Failed to fetch posts",
+        posts: [],
+      });
+    }
+  });
+
+  console.log("📧 Gmail routes registered");
+}
 
 // ============================================================================
 // 404 HANDLER
