@@ -1,0 +1,74 @@
+{
+  "messages": [
+    {
+      "id": "mock-msg-001",
+      "threadId": "mock-thread-001",
+      "labelIds": ["INBOX", "UNREAD"],
+      "snippet": "New post from Jane Doe: How to Build Better Software",
+      "internalDate": "1698364800000",
+      "payload": {
+        "headers": [
+          {
+            "name": "From",
+            "value": "Jane Doe <jane@substack.com>"
+          },
+          {
+            "name": "To",
+            "value": "reader@example.com"
+          },
+          {
+            "name": "Subject",
+            "value": "How to Build Better Software"
+          },
+          {
+            "name": "Date",
+            "value": "Thu, 26 Oct 2023 12:00:00 -0700"
+          }
+        ],
+        "parts": [
+          {
+            "mimeType": "text/html",
+            "body": {
+              "data": "PGh0bWw+PGJvZHk+PGgxPkhvdyB0byBCdWlsZCBCZXR0ZXIgU29mdHdhcmU8L2gxPjxwPlRoaXMgaXMgYSBzYW1wbGUgU3Vic3RhY2sgcG9zdCBhYm91dCBidWlsZGluZyBiZXR0ZXIgc29mdHdhcmUuLi48L3A+PHA+PGEgaHJlZj0iaHR0cHM6Ly9qYW5lZG9lLnN1YnN0YWNrLmNvbS9wL2hvdy10by1idWlsZC1iZXR0ZXItc29mdHdhcmUiPlJlYWQgbW9yZTwvYT48L3A+PC9ib2R5PjwvaHRtbD4="
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "mock-msg-002",
+      "threadId": "mock-thread-002",
+      "labelIds": ["INBOX"],
+      "snippet": "New post from John Smith: The Future of AI",
+      "internalDate": "1698278400000",
+      "payload": {
+        "headers": [
+          {
+            "name": "From",
+            "value": "John Smith <john@substack.com>"
+          },
+          {
+            "name": "To",
+            "value": "reader@example.com"
+          },
+          {
+            "name": "Subject",
+            "value": "The Future of AI"
+          },
+          {
+            "name": "Date",
+            "value": "Wed, 25 Oct 2023 09:00:00 -0700"
+          }
+        ],
+        "parts": [
+          {
+            "mimeType": "text/html",
+            "body": {
+              "data": "PGh0bWw+PGJvZHk+PGgxPlRoZSBGdXR1cmUgb2YgQUk8L2gxPjxwPkEgZGVlcCBkaXZlIGludG8gd2hlcmUgQUkgaXMgaGVhZGluZyBhbmQgd2hhdCBpdCBtZWFucyBmb3IgZGV2ZWxvcGVycy48L3A+PHA+PGEgaHJlZj0iaHR0cHM6Ly9qb2huc21pdGguc3Vic3RhY2suY29tL3AvdGhlLWZ1dHVyZS1vZi1haSI+UmVhZCBtb3JlPC9hPjwvcD48L2JvZHk+PC9odG1sPg=="
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

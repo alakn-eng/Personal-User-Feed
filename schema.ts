@@ -262,6 +262,51 @@ export const syncJobsTable = sqliteTable(
 );
 
 // ============================================================================
+// GMAIL INTEGRATION TABLES (Feature: FEATURE_GMAIL_INGEST)
+// ============================================================================
+
+// Stores encrypted Gmail OAuth tokens for users who have connected Gmail
+export const gmailConnectionsTable = sqliteTable("gmail_connections", {
+  gmailConnectionId: text("gmail_connection_id").primaryKey(), // UUID
+  userId: text("user_id")
+    .notNull()
+    .references(() => usersTable.userId, { onDelete: "cascade" }),
+  gmailAddress: text("gmail_address").notNull(),
+  encryptedAccessToken: text("encrypted_access_token").notNull(),
+  encryptedRefreshToken: text("encrypted_refresh_token").notNull(),
+  tokenExpiresAt: integer("token_expires_at"), // Unix timestamp
+  connectedAt: text("connected_at").notNull(),
+  lastSyncedAt: text("last_synced_at"),
+  isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
+});
+
+// Stores processed Gmail messages (Substack emails) to prevent reprocessing
+export const gmailProcessedMessagesTable = sqliteTable(
+  "gmail_processed_messages",
+  {
+    messageId: text("message_id").primaryKey(), // Gmail message ID
+    userId: text("user_id")
+      .notNull()
+      .references(() => usersTable.userId, { onDelete: "cascade" }),
+    gmailConnectionId: text("gmail_connection_id")
+      .notNull()
+      .references(() => gmailConnectionsTable.gmailConnectionId, { onDelete: "cascade" }),
+    contentHash: text("content_hash").notNull(), // For deduplication
+    processedAt: text("processed_at").notNull(),
+    substackAuthor: text("substack_author"), // Extracted author name
+    substackPostUrl: text("substack_post_url"), // Extracted post URL
+    contentId: text("content_id").references(() => contentItemsTable.contentId, {
+      onDelete: "set null",
+    }), // Link to created content item
+  },
+  (table) => ({
+    userIdx: index("gmail_messages_user_idx").on(table.userId),
+    hashIdx: index("gmail_messages_hash_idx").on(table.contentHash),
+    connectionIdx: index("gmail_messages_connection_idx").on(table.gmailConnectionId),
+  })
+);
+
+// ============================================================================
 // TYPE EXPORTS
 // ============================================================================
 
@@ -275,3 +320,5 @@ export type UserPin = InferModel<typeof userPinsTable>;
 export type UserSave = InferModel<typeof userSavesTable>;
 export type UserPreferences = InferModel<typeof userPreferencesTable>;
 export type SyncJob = InferModel<typeof syncJobsTable>;
+export type GmailConnection = InferModel<typeof gmailConnectionsTable>;
+export type GmailProcessedMessage = InferModel<typeof gmailProcessedMessagesTable>;

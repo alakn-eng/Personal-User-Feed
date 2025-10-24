@@ -241,8 +241,52 @@ async function migrate() {
     `);
     console.log("✅ Created sync_jobs table");
 
+    // Gmail connections table
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS gmail_connections (
+        gmail_connection_id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        gmail_address TEXT NOT NULL,
+        encrypted_access_token TEXT NOT NULL,
+        encrypted_refresh_token TEXT NOT NULL,
+        token_expires_at INTEGER,
+        connected_at TEXT NOT NULL,
+        last_synced_at TEXT,
+        is_active INTEGER NOT NULL DEFAULT 1,
+        FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+      )
+    `);
+    console.log("✅ Created gmail_connections table");
+
+    // Gmail processed messages table
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS gmail_processed_messages (
+        message_id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        gmail_connection_id TEXT NOT NULL,
+        content_hash TEXT NOT NULL,
+        processed_at TEXT NOT NULL,
+        substack_author TEXT,
+        substack_post_url TEXT,
+        content_id TEXT,
+        FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
+        FOREIGN KEY (gmail_connection_id) REFERENCES gmail_connections(gmail_connection_id) ON DELETE CASCADE,
+        FOREIGN KEY (content_id) REFERENCES content_items(content_id) ON DELETE SET NULL
+      )
+    `);
+    await client.execute(`
+      CREATE INDEX IF NOT EXISTS gmail_messages_user_idx ON gmail_processed_messages(user_id)
+    `);
+    await client.execute(`
+      CREATE INDEX IF NOT EXISTS gmail_messages_hash_idx ON gmail_processed_messages(content_hash)
+    `);
+    await client.execute(`
+      CREATE INDEX IF NOT EXISTS gmail_messages_connection_idx ON gmail_processed_messages(gmail_connection_id)
+    `);
+    console.log("✅ Created gmail_processed_messages table");
+
     console.log("\n🎉 Migration completed successfully!");
-    console.log("📊 Total tables created: 10");
+    console.log("📊 Total tables created: 12");
   } catch (error) {
     console.error("❌ Migration failed:", error);
     throw error;
