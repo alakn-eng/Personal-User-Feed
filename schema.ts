@@ -307,6 +307,52 @@ export const gmailProcessedMessagesTable = sqliteTable(
 );
 
 // ============================================================================
+// RSS/BLOG SOURCES TABLE
+// ============================================================================
+
+// Stores RSS/blog feed sources that users have added
+export const rssSourcesTable = sqliteTable(
+  "rss_sources",
+  {
+    sourceId: text("source_id").primaryKey(), // UUID
+    userId: text("user_id")
+      .notNull()
+      .references(() => usersTable.userId, { onDelete: "cascade" }),
+
+    // URLs
+    siteUrl: text("site_url").notNull(), // User-provided URL (e.g., https://example.com)
+    feedUrl: text("feed_url").notNull(), // Resolved feed URL (e.g., https://example.com/feed.xml)
+
+    // Feed metadata
+    feedType: text("feed_type"), // 'rss' | 'atom' | 'json_feed'
+    feedTitle: text("feed_title"), // From feed metadata
+    feedDescription: text("feed_description"),
+
+    // Discovery & sync metadata
+    discoveryMethod: text("discovery_method").notNull(), // 'well-known-path' | 'html-link-tag' | 'manual'
+    discoveryAttemptedAt: text("discovery_attempted_at").notNull(),
+
+    // ETag/Last-Modified for efficient polling
+    etag: text("etag"), // HTTP ETag header
+    lastModified: text("last_modified"), // HTTP Last-Modified header
+
+    // Sync status
+    lastCheckedAt: text("last_checked_at"),
+    lastSyncedAt: text("last_synced_at"), // Last successful sync
+    lastSyncStatus: text("last_sync_status"), // 'success' | 'error'
+    lastSyncError: text("last_sync_error"), // Error message if sync failed
+
+    // Timestamps
+    addedAt: text("added_at").notNull(),
+    isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
+  },
+  (table) => ({
+    userIdx: index("rss_sources_user_idx").on(table.userId),
+    feedUrlIdx: index("rss_sources_feed_url_idx").on(table.feedUrl),
+  })
+);
+
+// ============================================================================
 // TYPE EXPORTS
 // ============================================================================
 
@@ -322,3 +368,4 @@ export type UserPreferences = InferModel<typeof userPreferencesTable>;
 export type SyncJob = InferModel<typeof syncJobsTable>;
 export type GmailConnection = InferModel<typeof gmailConnectionsTable>;
 export type GmailProcessedMessage = InferModel<typeof gmailProcessedMessagesTable>;
+export type RssSource = InferModel<typeof rssSourcesTable>;
