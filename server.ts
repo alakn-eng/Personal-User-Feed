@@ -1,20 +1,20 @@
+import { createClient } from "@libsql/client";
+import cookieParser from "cookie-parser";
 import "dotenv/config";
+import { eq } from "drizzle-orm";
+import { drizzle } from "drizzle-orm/libsql";
 import express from "express";
 import session from "express-session";
-import cookieParser from "cookie-parser";
-import { drizzle } from "drizzle-orm/libsql";
-import { createClient } from "@libsql/client";
 import { google } from "googleapis";
-import { eq } from "drizzle-orm";
-import {
-  createYouTubeRepository,
-  createAuthUrl,
-  exchangeCodeForTokens,
-  YouTubeIngestionService,
-} from "./youtube";
 import { usersTable } from "./schema";
 import { createGmailAuthRouter, createGmailRepository } from "./src/gmail";
 import { createRssRepository, RssIngestionService } from "./src/rss";
+import {
+  createAuthUrl,
+  createYouTubeRepository,
+  exchangeCodeForTokens,
+  YouTubeIngestionService,
+} from "./youtube";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -407,8 +407,8 @@ app.post("/api/rss/sources", async (req, res) => {
       message: source?.discoveryMethod === "well-known-path"
         ? `✅ Found feed at well-known path: ${source.feedUrl}`
         : source?.discoveryMethod === "html-link-tag"
-        ? `✅ Found feed via HTML discovery: ${source.feedUrl}`
-        : `✅ Added feed: ${source?.feedUrl}`,
+          ? `✅ Found feed via HTML discovery: ${source.feedUrl}`
+          : `✅ Added feed: ${source?.feedUrl}`,
     });
   } catch (error) {
     console.error("[RSS] Error adding source:", error);
@@ -477,8 +477,35 @@ app.get("/api/rss/posts", async (req, res) => {
     const userId = req.session.userId || "temp-user";
     const limit = parseInt(req.query.limit as string) || 20;
 
-    const service = new RssIngestionService(rssRepo, userId);
-    const rawPosts = await service.getLatestPosts(limit);
+    const { contentItemsTable, creatorsTable, rssSourcesTable } = await import("./schema");
+    const { eq, and, desc } = await import("drizzle-orm");
+
+    const rawPosts = await db
+      .select({
+        contentId: contentItemsTable.contentId,
+        creatorId: contentItemsTable.creatorId,
+        externalId: contentItemsTable.externalId,
+        title: contentItemsTable.title,
+        description: contentItemsTable.description,
+        contentUrl: contentItemsTable.contentUrl,
+        thumbnailUrl: contentItemsTable.thumbnailUrl,
+        publishedAt: contentItemsTable.publishedAt,
+        creatorName: creatorsTable.name,
+        sourceId: rssSourcesTable.sourceId,
+      })
+      .from(contentItemsTable)
+      .innerJoin(creatorsTable, eq(creatorsTable.creatorId, contentItemsTable.creatorId))
+      .innerJoin(
+        rssSourcesTable,
+        and(
+          eq(rssSourcesTable.feedUrl, creatorsTable.externalId),
+          eq(rssSourcesTable.userId, userId),
+          eq(rssSourcesTable.isActive, true)
+        )
+      )
+      .where(eq(contentItemsTable.sourceType, "rss"))
+      .orderBy(desc(contentItemsTable.publishedAt))
+      .limit(limit);
 
     console.log(`📰 Found ${rawPosts.length} RSS/blog posts for user ${userId}`);
 
