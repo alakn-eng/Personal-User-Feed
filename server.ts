@@ -1,4 +1,5 @@
-import { createClient } from "@libsql/client";
+//import { createClient } from "@libsql/client";
+import { createClient } from "@libsql/client-wasm";
 import cookieParser from "cookie-parser";
 import "dotenv/config";
 import { eq } from "drizzle-orm";
@@ -16,6 +17,8 @@ import {
   exchangeCodeForTokens,
   YouTubeIngestionService,
 } from "./youtube";
+
+
 
 const app = express();
 const PORT = process.env.PORT || 3000;
