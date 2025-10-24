@@ -10,6 +10,11 @@ async function init() {
   createLimitSelector();
 
   await hydrateReadingFeed();
+
+  // Trigger RSS posts to load after initial Substack load
+  window.dispatchEvent(new CustomEvent('feedLimitChanged', {
+    detail: { limit: POST_LIMIT }
+  }));
 }
 
 function createLimitSelector() {
@@ -35,13 +40,30 @@ function createLimitSelector() {
   const select = limitControl.querySelector('#post-limit');
   select.addEventListener('change', async (e) => {
     POST_LIMIT = parseInt(e.target.value);
+
+    // Load Substack posts first
     await hydrateReadingFeed();
+
+    // Then notify rss-blogs.js to load RSS posts after Substack is done
+    window.dispatchEvent(new CustomEvent('feedLimitChanged', {
+      detail: { limit: POST_LIMIT }
+    }));
   });
 }
 
 async function hydrateReadingFeed() {
   try {
-    const response = await fetch(`/api/substack/posts?limit=${POST_LIMIT}`, {
+    // Calculate Substack limit (remaining after RSS allocation)
+    let substackLimit;
+    if (POST_LIMIT >= 10) {
+      substackLimit = POST_LIMIT - Math.floor(POST_LIMIT / 2); // 50% to RSS, rest to Substack
+    } else if (POST_LIMIT >= 5) {
+      substackLimit = POST_LIMIT - Math.floor(POST_LIMIT * 0.4); // 40% to RSS, rest to Substack
+    } else {
+      substackLimit = POST_LIMIT; // All to Substack for small limits
+    }
+
+    const response = await fetch(`/api/substack/posts?limit=${substackLimit}`, {
       credentials: "include",
     });
 
@@ -75,8 +97,15 @@ function setPlaceholder(message) {
 
 function renderPosts(posts) {
   if (!readingFeed) return;
-  readingFeed.innerHTML = "";
 
+  // Remove only existing Substack posts and placeholder, keep RSS posts
+  const existingSubstackPosts = readingFeed.querySelectorAll('[data-source="substack"]');
+  existingSubstackPosts.forEach(post => post.remove());
+
+  const placeholder = readingFeed.querySelector('.feed-placeholder');
+  if (placeholder) placeholder.remove();
+
+  // Append Substack posts (RSS posts will remain at the beginning)
   posts
     .map(mapPostToCard)
     .forEach((card) => readingFeed.appendChild(card));
@@ -86,6 +115,7 @@ function mapPostToCard(post) {
   const card = document.createElement("article");
   card.className = "card";
   card.dataset.category = "reading";
+  card.dataset.source = "substack";
   card.dataset.postId = post.postId;
 
   if (post.isPinned) {

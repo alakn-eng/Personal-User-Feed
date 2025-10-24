@@ -58,9 +58,22 @@
         <section class="feed-section" aria-labelledby="reading-heading">
           <header class="section-header">
             <h2 id="reading-heading">Reading</h2>
+            <!-- TEMPORARY TEST BUTTON - DELETE LATER -->
+            <button id="test-rss-only" style="background: red; color: white; padding: 8px 16px; border-radius: 4px; border: none; cursor: pointer; margin-left: 20px;">TEST: Load RSS Only</button>
           </header>
           <div class="feed-grid" id="reading-feed" data-feed="reading" aria-live="polite">
             <div class="feed-placeholder">Connect Gmail to see your latest Substack posts.</div>
+          </div>
+        </section>
+
+        <hr class="divider" aria-hidden="true" />
+
+        <section class="feed-section" aria-labelledby="blogs-heading">
+          <header class="section-header">
+            <h2 id="blogs-heading">Blogs</h2>
+          </header>
+          <div class="feed-grid" id="rss-feed" data-feed="blogs" aria-live="polite">
+            <div class="feed-placeholder">Add blogs to see RSS posts.</div>
           </div>
         </section>
 

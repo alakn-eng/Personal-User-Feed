@@ -3,6 +3,27 @@
 // ============================================================================
 
 const READING_FEED_CONTAINER = "#reading-feed";
+const RSS_ONLY_FEED_CONTAINER = "#rss-feed";
+const DEFAULT_TOTAL_LIMIT = 5;
+const RSS_ONLY_DEFAULT_LIMIT = 10;
+
+let rssFeatureReady = false;
+let pendingFeedLimit = DEFAULT_TOTAL_LIMIT;
+
+function handleFeedLimitChange(event) {
+  const totalLimit = event?.detail?.limit ?? DEFAULT_TOTAL_LIMIT;
+
+  // If the feature isn't ready yet, remember the latest request
+  if (!rssFeatureReady) {
+    pendingFeedLimit = totalLimit;
+    return;
+  }
+
+  loadRssPosts(totalLimit);
+}
+
+// Listen for limit changes immediately so we don't miss early events
+window.addEventListener("feedLimitChanged", handleFeedLimitChange);
 
 // ============================================================================
 // INITIALIZATION
@@ -15,6 +36,7 @@ async function init() {
   const config = await fetch("/api/config").then((r) => r.json());
   if (!config.features.rss) {
     console.log("[RSS] RSS feature is disabled");
+    window.removeEventListener("feedLimitChanged", handleFeedLimitChange);
     return;
   }
 
@@ -24,8 +46,10 @@ async function init() {
   // Set up blog management dropdown
   setupBlogManagement();
 
-  // Load RSS posts
-  await loadRssPosts();
+  // Mark the feature ready and process any pending limit request
+  rssFeatureReady = true;
+  await loadRssPosts(pendingFeedLimit);
+  await loadStandaloneRssFeed();
 
   console.log("[RSS] Initialization complete");
 }
@@ -176,15 +200,37 @@ function showStatus(element, type, message) {
 // LOAD RSS POSTS
 // ============================================================================
 
-async function loadRssPosts() {
+async function loadRssPosts(totalLimit = DEFAULT_TOTAL_LIMIT) {
   const container = document.querySelector(READING_FEED_CONTAINER);
   if (!container) {
     console.warn("[RSS] Reading feed container not found");
     return;
   }
 
+  // Calculate RSS limit based on distribution:
+  // 10 total: 5 RSS
+  // 5 total: 2 RSS
+  // 3 total: 0 RSS (Substack only)
+  let rssLimit;
+  if (totalLimit >= 10) {
+    rssLimit = Math.floor(totalLimit / 2);
+  } else if (totalLimit >= 5) {
+    rssLimit = Math.floor(totalLimit * 0.4); // 40% for RSS (2 out of 5)
+  } else {
+    rssLimit = 0; // Substack priority for small limits
+  }
+
   try {
-    const response = await fetch("/api/rss/posts?limit=10");
+    // Remove existing RSS posts first
+    const existingRssPosts = container.querySelectorAll('[data-source="rss"]');
+    existingRssPosts.forEach(post => post.remove());
+
+    if (rssLimit === 0) {
+      console.log(`[RSS] Skipping RSS posts (limit too small: ${totalLimit})`);
+      return;
+    }
+
+    const response = await fetch(`/api/rss/posts?limit=${rssLimit}`);
     const data = await response.json();
 
     if (!response.ok) {
@@ -192,18 +238,9 @@ async function loadRssPosts() {
     }
 
     const posts = data.posts || [];
-    console.log(`[RSS] Loaded ${posts.length} RSS posts`);
+    console.log(`[RSS] Loaded ${posts.length} RSS posts (limit: ${rssLimit})`);
 
     if (posts.length === 0) {
-      // Keep existing Substack posts, just add a message
-      const existingCards = container.querySelectorAll(".card");
-      if (existingCards.length === 0) {
-        container.innerHTML = `
-          <div class="feed-placeholder">
-            Add blogs to see posts here. Click "+ Add new source" below.
-          </div>
-        `;
-      }
       return;
     }
 
@@ -218,6 +255,43 @@ async function loadRssPosts() {
     container.insertAdjacentHTML("afterbegin", rssPosts);
   } catch (error) {
     console.error("[RSS] Error loading posts:", error);
+  }
+}
+
+async function loadStandaloneRssFeed(limit = RSS_ONLY_DEFAULT_LIMIT) {
+  const container = document.querySelector(RSS_ONLY_FEED_CONTAINER);
+  if (!container) {
+    return;
+  }
+
+  try {
+    const response = await fetch(`/api/rss/posts?limit=${limit}`);
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || "Failed to fetch RSS posts");
+    }
+
+    const posts = data.posts || [];
+    console.log(`[RSS] Loaded ${posts.length} RSS posts for Blogs section (limit: ${limit})`);
+
+    if (posts.length === 0) {
+      container.innerHTML = `
+        <div class="feed-placeholder">
+          Add blogs to see RSS posts here.
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = posts.map(renderRssPost).join("");
+  } catch (error) {
+    console.error("[RSS] Error loading standalone RSS posts:", error);
+    container.innerHTML = `
+      <div class="feed-placeholder">
+        We couldn't load RSS posts. Try again later.
+      </div>
+    `;
   }
 }
 
@@ -430,6 +504,47 @@ function hidePostsFromSource(sourceId) {
 }
 
 // ============================================================================
+// TEMPORARY TEST - DELETE THIS SECTION LATER
+// ============================================================================
+
+async function testRssOnly() {
+  console.log("=== TEST: Loading RSS posts only ===");
+  const container = document.querySelector(READING_FEED_CONTAINER);
+  if (!container) {
+    console.error("TEST: Container not found");
+    return;
+  }
+
+  // Clear everything
+  container.innerHTML = "";
+
+  try {
+    const response = await fetch("/api/rss/posts?limit=10");
+    const data = await response.json();
+
+    console.log("TEST: API Response:", data);
+    console.log(`TEST: Found ${data.posts?.length || 0} RSS posts`);
+
+    if (!data.posts || data.posts.length === 0) {
+      container.innerHTML = '<div class="feed-placeholder">No RSS posts found in database!</div>';
+      return;
+    }
+
+    const posts = data.posts;
+    console.log("TEST: First post:", posts[0]);
+
+    // Render posts
+    const rssPosts = posts.map(renderRssPost).join("");
+    container.innerHTML = rssPosts;
+
+    console.log("TEST: Successfully rendered RSS posts");
+  } catch (error) {
+    console.error("TEST: Error loading RSS posts:", error);
+    container.innerHTML = `<div class="feed-placeholder">TEST ERROR: ${error.message}</div>`;
+  }
+}
+
+// ============================================================================
 // START
 // ============================================================================
 
@@ -439,3 +554,12 @@ if (document.readyState === "loading") {
 } else {
   init();
 }
+
+// TEMPORARY: Wire up test button
+document.addEventListener("DOMContentLoaded", () => {
+  const testButton = document.getElementById("test-rss-only");
+  if (testButton) {
+    testButton.addEventListener("click", testRssOnly);
+    console.log("TEST: Test button wired up");
+  }
+});

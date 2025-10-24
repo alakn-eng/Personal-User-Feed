@@ -288,10 +288,12 @@ export function createRssRepository(db: LibSQLDatabase<Record<string, never>>): 
 
     async getLatestPosts(userId, limit) {
       // Get all RSS sources for this user
+      console.log(`[RSS Repo] Fetching sources for ${userId}`);
       const userSources = await db
         .select()
         .from(rssSourcesTable)
         .where(and(eq(rssSourcesTable.userId, userId), eq(rssSourcesTable.isActive, true)));
+      console.log(`[RSS Repo] Found ${userSources.length} sources for ${userId}`);
 
       if (userSources.length === 0) {
         return [];
@@ -301,6 +303,7 @@ export function createRssRepository(db: LibSQLDatabase<Record<string, never>>): 
       const feedUrlToSourceId = new Map(userSources.map(s => [s.feedUrl, s.sourceId]));
 
       // Get latest posts from RSS creators
+      console.log(`[RSS Repo] Querying latest posts with limit ${limit}`);
       const posts = await db
         .select({
           contentId: contentItemsTable.contentId,
@@ -331,6 +334,7 @@ export function createRssRepository(db: LibSQLDatabase<Record<string, never>>): 
         .where(eq(contentItemsTable.sourceType, "rss"))
         .orderBy(desc(contentItemsTable.publishedAt))
         .limit(limit * 2); // Get more, then filter to active sources
+      console.log(`[RSS Repo] Retrieved ${posts.length} raw RSS posts`);
 
       // Filter to only posts from active sources and add sourceId
       const filteredPosts = posts
