@@ -7,6 +7,7 @@ import express from "express";
 import session from "express-session";
 import { google } from "googleapis";
 import { usersTable } from "./schema";
+import { createMagicAuthService } from "./src/auth/magic";
 import { createGmailAuthRouter, createGmailRepository } from "./src/gmail";
 import { createRssRepository, RssIngestionService } from "./src/rss";
 import {
@@ -54,6 +55,13 @@ if (process.env.FEATURE_GMAIL_INGEST === "on" && !gmailEnabled) {
   console.warn("   Set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, ENCRYPTION_KEY, and FEATURE_GMAIL_INGEST=on");
 }
 
+// Check Magic.link credentials (OPTIONAL - feature will be disabled if missing)
+const magicEnabled = !!(process.env.MAGIC_SECRET_KEY && process.env.MAGIC_PUBLISHABLE_KEY);
+if (!magicEnabled) {
+  console.warn("⚠️  Magic.link authentication disabled - missing credentials");
+  console.warn("   Set MAGIC_SECRET_KEY and MAGIC_PUBLISHABLE_KEY to enable passwordless auth");
+}
+
 // ============================================================================
 // DATABASE SETUP
 // ============================================================================
@@ -66,6 +74,9 @@ const client = createClient({
 const db = drizzle(client);
 const youtubeRepo = createYouTubeRepository(db);
 const rssRepo = createRssRepository(db);
+
+// Initialize Magic.link service (will be null if credentials not configured)
+const magicAuth = createMagicAuthService(db);
 
 // ============================================================================
 // HELPER FUNCTIONS
@@ -121,8 +132,53 @@ declare module "express-session" {
   }
 }
 
+// Authentication middleware - require login for protected routes
+function requireAuth(req: express.Request, res: express.Response, next: express.NextFunction) {
+  const isAuthenticated = !!req.session.userId;
+
+  // If user is authenticated and trying to access login page, redirect to main app
+  if (isAuthenticated && req.path === "/login.html") {
+    return res.redirect("/");
+  }
+
+  // Allow access to login page and auth endpoints (only if not authenticated)
+  if (
+    req.path === "/login.html" ||
+    req.path === "/magic-auth.js" ||
+    req.path.startsWith("/api/auth/") ||
+    req.path === "/health" ||
+    req.path === "/api/config"
+  ) {
+    return next();
+  }
+
+  // Check if user is authenticated
+  if (!isAuthenticated) {
+    // For API routes, return 401
+    if (req.path.startsWith("/api/")) {
+      return res.status(401).json({
+        error: "Unauthorized",
+        message: "Please login to access this resource",
+      });
+    }
+
+    // For HTML pages, redirect to login
+    if (req.path === "/" || req.path === "/index.html") {
+      return res.redirect("/login.html");
+    }
+
+    // For other routes, return 401
+    return res.status(401).send("Unauthorized - Please login");
+  }
+
+  next();
+}
+
 // Serve static files (HTML, CSS, JS)
 app.use(express.static("."));
+
+// Apply authentication middleware to all routes
+app.use(requireAuth);
 
 // ============================================================================
 // HEALTH & CONFIG ENDPOINTS
@@ -134,7 +190,9 @@ app.get("/health", (req, res) => {
     database: "connected",
     features: {
       youtube: youtubeEnabled,
-      magicLink: false, // Not implemented yet
+      magicLink: magicEnabled,
+      gmail: gmailEnabled,
+      rss: true,
     },
   });
 });
@@ -190,9 +248,8 @@ app.get("/auth/youtube/callback", async (req, res) => {
     // Set credentials on the OAuth client
     oauthClient.setCredentials(tokens);
 
-    // TODO: Replace with real user auth - for now use temp user ID
-    const userId = req.session.userId || "temp-user";
-    req.session.userId = userId;
+    // Get authenticated user ID from session (guaranteed by middleware)
+    const userId = req.session.userId!;
 
     // Ensure user exists in database first
     await ensureUserExists(userId);
@@ -231,7 +288,7 @@ app.get("/api/youtube/videos", async (req, res) => {
   }
 
   try {
-    const userId = req.session.userId || "temp-user";
+    const userId = req.session.userId!;
     const limit = parseInt(req.query.limit as string) || 5;
 
     // Get stored connection and create service
@@ -285,7 +342,7 @@ app.post("/api/youtube/pins/:videoId", async (req, res) => {
   }
 
   try {
-    const userId = req.session.userId || "temp-user";
+    const userId = req.session.userId!;
     const { videoId } = req.params;
 
     // TODO: Implement pin/unpin logic
@@ -298,6 +355,132 @@ app.post("/api/youtube/pins/:videoId", async (req, res) => {
 });
 
 // ============================================================================
+// MAGIC.LINK AUTH ROUTES (Optional passwordless authentication)
+// ============================================================================
+
+// Get Magic.link config (for frontend to use)
+app.get("/api/auth/magic/config", (req, res) => {
+  if (!magicEnabled || !magicAuth) {
+    return res.status(503).json({
+      error: "Magic.link authentication is not configured",
+      enabled: false,
+    });
+  }
+
+  res.json({
+    enabled: true,
+    publishableKey: process.env.MAGIC_PUBLISHABLE_KEY,
+  });
+});
+
+// Authenticate user with Magic.link DID token
+app.post("/api/auth/magic/login", async (req, res) => {
+  if (!magicEnabled || !magicAuth) {
+    return res.status(503).json({
+      error: "Magic.link authentication is not configured",
+    });
+  }
+
+  try {
+    const { didToken } = req.body;
+
+    if (!didToken) {
+      return res.status(400).json({ error: "DID token is required" });
+    }
+
+    // Validate token and get user metadata
+    const metadata = await magicAuth.validateToken(didToken);
+
+    // Get or create user in database
+    const user = await magicAuth.getOrCreateUser(metadata);
+
+    // Set session
+    req.session.userId = user.userId;
+
+    console.log(`✅ Magic.link login successful: ${user.email}`);
+
+    res.json({
+      success: true,
+      user: {
+        userId: user.userId,
+        email: user.email,
+        displayName: user.displayName,
+      },
+    });
+  } catch (error) {
+    console.error("[Magic] Login error:", error);
+    res.status(401).json({
+      error: "Authentication failed",
+      message: error instanceof Error ? error.message : "Invalid token",
+    });
+  }
+});
+
+// Get current user info
+app.get("/api/auth/user", async (req, res) => {
+  try {
+    const userId = req.session.userId;
+
+    if (!userId) {
+      return res.json({ authenticated: false });
+    }
+
+    // Get user from database
+    const users = await db
+      .select()
+      .from(usersTable)
+      .where(eq(usersTable.userId, userId))
+      .limit(1);
+
+    if (users.length === 0) {
+      return res.json({ authenticated: false });
+    }
+
+    const user = users[0];
+    res.json({
+      authenticated: true,
+      user: {
+        userId: user.userId,
+        email: user.email,
+        displayName: user.displayName,
+        avatarUrl: user.avatarUrl,
+      },
+    });
+  } catch (error) {
+    console.error("[Magic] User info error:", error);
+    res.json({ authenticated: false });
+  }
+});
+
+// Logout
+app.post("/api/auth/magic/logout", async (req, res) => {
+  try {
+    const { didToken } = req.body;
+
+    // Clear session
+    req.session.destroy((err) => {
+      if (err) {
+        console.error("[Magic] Session destroy error:", err);
+      }
+    });
+
+    // Optionally logout from Magic.link (if DID token provided)
+    if (didToken && magicAuth) {
+      await magicAuth.logout(didToken);
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error("[Magic] Logout error:", error);
+    res.json({ success: true }); // Still clear session even if Magic logout fails
+  }
+});
+
+if (magicEnabled) {
+  console.log("🔐 Magic.link auth routes registered");
+}
+
+// ============================================================================
 // GMAIL ROUTES (Feature-flagged)
 // ============================================================================
 
@@ -308,7 +491,7 @@ if (gmailEnabled) {
   // Gmail connection status endpoint
   app.get("/api/gmail/status", async (req, res) => {
     try {
-      const userId = req.session.userId || "temp-user";
+      const userId = req.session.userId!;
       const gmailRepo = createGmailRepository(db);
       const connection = await gmailRepo.getConnection(userId);
 
@@ -324,14 +507,15 @@ if (gmailEnabled) {
   // Substack posts endpoint
   app.get("/api/substack/posts", async (req, res) => {
     try {
-      const userId = req.session.userId || "temp-user";
+      const userId = req.session.userId!;
       const limit = parseInt(req.query.limit as string) || 5;
 
       // Query content_items for Substack posts
-      const { contentItemsTable, creatorsTable, userSubscriptionsTable } = await import("./schema");
+      const { contentItemsTable, creatorsTable, gmailConnectionsTable } = await import("./schema");
       const { eq, and, desc } = await import("drizzle-orm");
 
-      // Query Substack posts - no subscription check needed since we ingested from user's Gmail
+      // Query Substack posts - filter by user's Gmail connection
+      // This ensures users only see Substack posts ingested from THEIR Gmail account
       const rawPosts = await db
         .select({
           contentId: contentItemsTable.contentId,
@@ -346,7 +530,13 @@ if (gmailEnabled) {
         })
         .from(contentItemsTable)
         .innerJoin(creatorsTable, eq(creatorsTable.creatorId, contentItemsTable.creatorId))
-        .where(eq(contentItemsTable.sourceType, "substack"))
+        .innerJoin(
+          gmailConnectionsTable,
+          and(
+            eq(gmailConnectionsTable.userId, userId),
+            eq(contentItemsTable.sourceType, "substack")
+          )
+        )
         .orderBy(desc(contentItemsTable.publishedAt))
         .limit(limit);
 
@@ -383,7 +573,7 @@ if (gmailEnabled) {
 // Add a new blog/RSS source
 app.post("/api/rss/sources", async (req, res) => {
   try {
-    const userId = req.session.userId || "temp-user";
+    const userId = req.session.userId!;
     await ensureUserExists(userId);
 
     const { siteUrl, feedUrl } = req.body;
@@ -428,7 +618,7 @@ app.post("/api/rss/sources", async (req, res) => {
 // Get user's RSS sources
 app.get("/api/rss/sources", async (req, res) => {
   try {
-    const userId = req.session.userId || "temp-user";
+    const userId = req.session.userId!;
     const sources = await rssRepo.getUserSources(userId);
 
     res.json({ sources });
@@ -441,7 +631,7 @@ app.get("/api/rss/sources", async (req, res) => {
 // Sync a specific source
 app.post("/api/rss/sources/:sourceId/sync", async (req, res) => {
   try {
-    const userId = req.session.userId || "temp-user";
+    const userId = req.session.userId!;
     const { sourceId } = req.params;
 
     const service = new RssIngestionService(rssRepo, userId);
@@ -458,7 +648,7 @@ app.post("/api/rss/sources/:sourceId/sync", async (req, res) => {
 // Delete a source
 app.delete("/api/rss/sources/:sourceId", async (req, res) => {
   try {
-    const userId = req.session.userId || "temp-user";
+    const userId = req.session.userId!;
     const { sourceId } = req.params;
 
     const service = new RssIngestionService(rssRepo, userId);
@@ -474,7 +664,7 @@ app.delete("/api/rss/sources/:sourceId", async (req, res) => {
 // Get RSS/blog posts
 app.get("/api/rss/posts", async (req, res) => {
   try {
-    const userId = req.session.userId || "temp-user";
+    const userId = req.session.userId!;
     const limit = parseInt(req.query.limit as string) || 20;
 
     const { contentItemsTable, creatorsTable, rssSourcesTable } = await import("./schema");
