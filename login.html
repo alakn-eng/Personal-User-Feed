@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Login · Curator's Desk</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap"
+    rel="stylesheet"
+  />
+  <style>
+    .login-container {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #fdfcf9;
+    }
+
+    .login-card {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+      padding: 48px;
+      max-width: 420px;
+      width: 100%;
+      text-align: center;
+    }
+
+    .login-card__logo {
+      font-family: "Fraunces", serif;
+      font-size: 32px;
+      font-weight: 700;
+      color: #1a1a1a;
+      margin-bottom: 12px;
+    }
+
+    .login-card__subtitle {
+      color: #666;
+      font-size: 16px;
+      margin-bottom: 32px;
+    }
+
+    .login-card__input {
+      width: 100%;
+      padding: 14px 16px;
+      font-size: 16px;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      margin-bottom: 16px;
+      font-family: "Inter", sans-serif;
+    }
+
+    .login-card__input:focus {
+      outline: none;
+      border-color: #d66761;
+      box-shadow: 0 0 0 3px rgba(214, 103, 97, 0.1);
+    }
+
+    .login-card__button {
+      width: 100%;
+      padding: 14px 16px;
+      font-size: 16px;
+      font-weight: 600;
+      background: #d66761;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-family: "Inter", sans-serif;
+      transition: background 0.2s;
+    }
+
+    .login-card__button:hover {
+      background: #c55751;
+    }
+
+    .login-card__button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+
+    .login-card__message {
+      margin-top: 16px;
+      padding: 12px;
+      border-radius: 6px;
+      font-size: 14px;
+    }
+
+    .login-card__message--error {
+      background: #fee;
+      color: #c00;
+    }
+
+    .login-card__message--success {
+      background: #efe;
+      color: #070;
+    }
+
+    .login-card__message--info {
+      background: #eef;
+      color: #007;
+    }
+
+    .login-card__footer {
+      margin-top: 24px;
+      color: #999;
+      font-size: 14px;
+    }
+
+    .temp-user-link {
+      display: inline-block;
+      margin-top: 16px;
+      color: #666;
+      text-decoration: none;
+      font-size: 14px;
+    }
+
+    .temp-user-link:hover {
+      color: #d66761;
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <div class="login-container">
+    <div class="login-card">
+      <h1 class="login-card__logo">Curator's Desk</h1>
+      <p class="login-card__subtitle">Sign in with your email</p>
+
+      <form id="login-form">
+        <input
+          type="email"
+          id="email-input"
+          class="login-card__input"
+          placeholder="Enter your email"
+          required
+          autocomplete="email"
+        />
+        <button type="submit" class="login-card__button" id="login-button">
+          Send Magic Link
+        </button>
+      </form>
+
+      <div id="message" class="login-card__message" style="display: none;"></div>
+
+      <div class="login-card__footer">
+        Passwordless authentication powered by Magic.link
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="magic-auth.js"></script>
+</body>
+</html>

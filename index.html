@@ -31,12 +31,20 @@
           + Add Blog
         </button>
         <div class="profile-dropdown-wrapper">
-          <button class="profile-button" id="blog-manage-nav" type="button" aria-label="Manage blogs">
+          <button class="profile-button" id="profile-menu-toggle" type="button" aria-label="User menu">
             <span class="profile-button__avatar" aria-hidden="true"></span>
           </button>
-          <div class="blog-dropdown" id="blog-dropdown" hidden>
+          <div class="blog-dropdown" id="profile-dropdown" hidden>
+            <div class="blog-dropdown__header">
+              <div id="user-email" style="font-size: 14px; color: #666; margin-bottom: 8px;">Loading...</div>
+              <button id="logout-button" style="width: 100%; padding: 8px 12px; background: #d66761; color: white; border: none; border-radius: 6px; cursor: pointer; font-family: 'Inter', sans-serif; font-weight: 500;">
+                Logout
+              </button>
+            </div>
+            <hr style="border: none; border-top: 1px solid #eee; margin: 12px 0;">
             <div class="blog-dropdown__header">
               <h3>Your Blogs</h3>
+              <button id="add-blog-dropdown" style="padding: 6px 12px; background: #f5f5f5; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; font-size: 13px;">+ Add</button>
             </div>
             <div class="blog-dropdown__list" id="blog-list">
               <div class="blog-dropdown__loading">Loading...</div>
@@ -97,6 +105,7 @@
       </div>
     </footer>
   </div>
+  <script type="module" src="auth-check.js"></script>
   <script type="module" src="youtube.js"></script>
   <script type="module" src="gmail-button.js"></script>
   <script type="module" src="substack.js"></script>

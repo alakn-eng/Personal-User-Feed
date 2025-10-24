@@ -353,28 +353,19 @@ function escapeHtml(text) {
 // ============================================================================
 
 function setupBlogManagement() {
-  const manageBtn = document.getElementById("blog-manage-nav");
-  const dropdown = document.getElementById("blog-dropdown");
+  const manageBtn = document.getElementById("profile-menu-toggle");
+  const dropdown = document.getElementById("profile-dropdown");
 
   if (!manageBtn || !dropdown) return;
 
-  // Toggle dropdown
+  // Note: Dropdown toggle is now handled by auth-check.js
+  // We just need to load the blog list when the dropdown is opened
   manageBtn.addEventListener("click", async (e) => {
-    e.stopPropagation();
-    const isHidden = dropdown.hasAttribute("hidden");
-
-    if (isHidden) {
-      dropdown.removeAttribute("hidden");
-      await loadBlogList();
-    } else {
-      dropdown.setAttribute("hidden", "");
-    }
-  });
-
-  // Close dropdown when clicking outside
-  document.addEventListener("click", (e) => {
-    if (!dropdown.contains(e.target) && e.target !== manageBtn) {
-      dropdown.setAttribute("hidden", "");
+    // Check if dropdown will be shown (opposite of current state)
+    const willShow = dropdown.hasAttribute("hidden");
+    if (willShow) {
+      // Small delay to let auth-check.js open the dropdown first
+      setTimeout(() => loadBlogList(), 50);
     }
   });
 }
