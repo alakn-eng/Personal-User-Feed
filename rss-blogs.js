@@ -35,12 +35,6 @@ async function init() {
 // ============================================================================
 
 function setupAddSourceButton() {
-  // Wire up the "Add new source" button in the page
-  const addSourceButton = document.querySelector(".add-source");
-  if (addSourceButton) {
-    addSourceButton.addEventListener("click", showAddBlogModal);
-  }
-
   // Wire up the "Add Blog" button in the navbar
   const addBlogNavButton = document.getElementById("add-blog-nav");
   if (addBlogNavButton) {

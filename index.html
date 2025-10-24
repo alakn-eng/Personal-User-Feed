@@ -21,7 +21,7 @@
         </div>
         <nav class="navbar__tabs" aria-label="Primary">
           <a href="#" class="tab is-active" aria-current="page">Desk</a>
-          <a href="#" class="tab">River</a>
+          <a href="#" class="tab" style="text-decoration: line-through; opacity: 0.5; cursor: not-allowed;">River</a>
           <a href="#" class="tab">Archive</a>
         </nav>
         <button class="youtube-connect" id="youtube-auth" type="button">
@@ -52,13 +52,6 @@
           <div class="page-header__copy">
             <h1>Your Feed</h1>
             <p class="page-header__subtext">Last updated 3h ago</p>
-          </div>
-          <div class="filter-bar" role="toolbar" aria-label="Feed filters">
-            <button class="filter is-active" type="button" data-filter="all" aria-pressed="true">All</button>
-            <button class="filter" type="button" data-filter="reading">Reading</button>
-            <button class="filter" type="button" data-filter="watching">Watching</button>
-            <button class="filter" type="button" data-filter="misc">Misc</button>
-            <button class="filter" type="button" data-filter="pinned" aria-haspopup="true" aria-expanded="false">Pinned ▾</button>
           </div>
         </section>
 
@@ -129,24 +122,11 @@
           </div>
           <a class="see-all" href="#">See all ▸</a>
         </section>
-
-        <section class="add-source-section">
-          <button class="add-source" type="button">+ Add new source</button>
-          <p class="add-source__hint">Connect Substack, YouTube, podcasts, RSS feeds, and more.</p>
-        </section>
-
-        <section class="empty-state" aria-live="polite" hidden>
-          <div class="empty-state__illustration" role="img" aria-label="Clean desk illustration"></div>
-          <h3>Your feed is clear.</h3>
-          <p class="empty-state__subtext">When new essays arrive, they&rsquo;ll appear here.</p>
-          <button class="empty-state__cta" type="button">Add sources</button>
-        </section>
       </div>
     </main>
 
     <footer class="feed-footer" role="contentinfo">
       <div class="page-width feed-footer__inner">
-        <p>You&rsquo;ve subscribed to 22 sources.</p>
         <p>Your feed only contains things you chose.</p>
       </div>
     </footer>
