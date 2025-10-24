@@ -285,8 +285,39 @@ async function migrate() {
     `);
     console.log("✅ Created gmail_processed_messages table");
 
+    // RSS sources table
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS rss_sources (
+        source_id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        site_url TEXT NOT NULL,
+        feed_url TEXT NOT NULL,
+        feed_type TEXT,
+        feed_title TEXT,
+        feed_description TEXT,
+        discovery_method TEXT NOT NULL,
+        discovery_attempted_at TEXT NOT NULL,
+        etag TEXT,
+        last_modified TEXT,
+        last_checked_at TEXT,
+        last_synced_at TEXT,
+        last_sync_status TEXT,
+        last_sync_error TEXT,
+        added_at TEXT NOT NULL,
+        is_active INTEGER NOT NULL DEFAULT 1,
+        FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+      )
+    `);
+    await client.execute(`
+      CREATE INDEX IF NOT EXISTS rss_sources_user_idx ON rss_sources(user_id)
+    `);
+    await client.execute(`
+      CREATE INDEX IF NOT EXISTS rss_sources_feed_url_idx ON rss_sources(feed_url)
+    `);
+    console.log("✅ Created rss_sources table");
+
     console.log("\n🎉 Migration completed successfully!");
-    console.log("📊 Total tables created: 12");
+    console.log("📊 Total tables created: 13");
   } catch (error) {
     console.error("❌ Migration failed:", error);
     throw error;

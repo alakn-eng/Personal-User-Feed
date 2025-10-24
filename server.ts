@@ -14,6 +14,7 @@ import {
 } from "./youtube";
 import { usersTable } from "./schema";
 import { createGmailAuthRouter, createGmailRepository } from "./src/gmail";
+import { createRssRepository, RssIngestionService } from "./src/rss";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -64,6 +65,7 @@ const client = createClient({
 
 const db = drizzle(client);
 const youtubeRepo = createYouTubeRepository(db);
+const rssRepo = createRssRepository(db);
 
 // ============================================================================
 // HELPER FUNCTIONS
@@ -144,7 +146,7 @@ app.get("/api/config", (req, res) => {
       gmail: gmailEnabled,
       substack: false,
       twitter: false,
-      rss: false,
+      rss: true, // RSS is always enabled (no OAuth required)
     },
     version: "1.0.0",
   });
@@ -373,6 +375,136 @@ if (gmailEnabled) {
 
   console.log("📧 Gmail routes registered");
 }
+
+// ============================================================================
+// RSS/BLOG ROUTES (Always enabled - no OAuth required)
+// ============================================================================
+
+// Add a new blog/RSS source
+app.post("/api/rss/sources", async (req, res) => {
+  try {
+    const userId = req.session.userId || "temp-user";
+    await ensureUserExists(userId);
+
+    const { siteUrl, feedUrl } = req.body;
+
+    if (!siteUrl) {
+      return res.status(400).json({ error: "siteUrl is required" });
+    }
+
+    console.log(`[RSS] Adding blog source: ${siteUrl}`);
+
+    const service = new RssIngestionService(rssRepo, userId);
+    const sourceId = await service.addBlogSource(siteUrl, feedUrl);
+
+    // Get the source details
+    const source = await rssRepo.getSource(sourceId);
+
+    res.json({
+      success: true,
+      sourceId,
+      source,
+      message: source?.discoveryMethod === "well-known-path"
+        ? `✅ Found feed at well-known path: ${source.feedUrl}`
+        : source?.discoveryMethod === "html-link-tag"
+        ? `✅ Found feed via HTML discovery: ${source.feedUrl}`
+        : `✅ Added feed: ${source?.feedUrl}`,
+    });
+  } catch (error) {
+    console.error("[RSS] Error adding source:", error);
+    const errorMessage = error instanceof Error ? error.message : "Failed to add blog";
+
+    if (errorMessage.includes("No feed found")) {
+      return res.status(404).json({
+        error: "Feed not found",
+        message: "Could not discover a feed for this blog. Please provide the feed URL manually.",
+      });
+    }
+
+    res.status(500).json({ error: errorMessage });
+  }
+});
+
+// Get user's RSS sources
+app.get("/api/rss/sources", async (req, res) => {
+  try {
+    const userId = req.session.userId || "temp-user";
+    const sources = await rssRepo.getUserSources(userId);
+
+    res.json({ sources });
+  } catch (error) {
+    console.error("[RSS] Error fetching sources:", error);
+    res.status(500).json({ error: "Failed to fetch sources" });
+  }
+});
+
+// Sync a specific source
+app.post("/api/rss/sources/:sourceId/sync", async (req, res) => {
+  try {
+    const userId = req.session.userId || "temp-user";
+    const { sourceId } = req.params;
+
+    const service = new RssIngestionService(rssRepo, userId);
+    await service.syncSource(sourceId);
+
+    res.json({ success: true, message: "Source synced successfully" });
+  } catch (error) {
+    console.error("[RSS] Error syncing source:", error);
+    const errorMessage = error instanceof Error ? error.message : "Failed to sync source";
+    res.status(500).json({ error: errorMessage });
+  }
+});
+
+// Delete a source
+app.delete("/api/rss/sources/:sourceId", async (req, res) => {
+  try {
+    const userId = req.session.userId || "temp-user";
+    const { sourceId } = req.params;
+
+    const service = new RssIngestionService(rssRepo, userId);
+    await service.removeSource(sourceId);
+
+    res.json({ success: true, message: "Source removed successfully" });
+  } catch (error) {
+    console.error("[RSS] Error removing source:", error);
+    res.status(500).json({ error: "Failed to remove source" });
+  }
+});
+
+// Get RSS/blog posts
+app.get("/api/rss/posts", async (req, res) => {
+  try {
+    const userId = req.session.userId || "temp-user";
+    const limit = parseInt(req.query.limit as string) || 20;
+
+    const service = new RssIngestionService(rssRepo, userId);
+    const rawPosts = await service.getLatestPosts(limit);
+
+    console.log(`📰 Found ${rawPosts.length} RSS/blog posts for user ${userId}`);
+
+    // Map to frontend format (similar to Substack)
+    const posts = rawPosts.map((post) => ({
+      postId: post.externalId,
+      sourceId: post.sourceId,
+      author: post.creatorName,
+      title: post.title,
+      snippet: post.description || "",
+      postUrl: post.contentUrl,
+      publishedAt: post.publishedAt,
+      isPinned: false, // TODO: Check user_pins table
+    }));
+
+    res.json({ posts });
+  } catch (error) {
+    console.error("[RSS] Error fetching posts:", error);
+    res.status(500).json({
+      error: "Failed to fetch posts",
+      posts: [],
+    });
+  }
+});
+
+console.log("📡 RSS/Blog routes registered");
 
 // ============================================================================
 // 404 HANDLER

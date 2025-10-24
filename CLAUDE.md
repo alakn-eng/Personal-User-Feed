@@ -144,11 +144,48 @@ The UI follows a "curator's desk" metaphor:
 ## Adding New Features
 
 ### Adding a new content source
-1. Create service file following `youtube.ts` pattern
-2. Implement OAuth/API integration
+1. Create service file following `youtube.ts` or `src/rss/` pattern
+2. Implement OAuth/API integration (if needed) or feed discovery
 3. Map platform data to unified schema (`creators`, `content_items`)
 4. Add routes in `server.ts`
 5. Update frontend to display new content type
+
+### RSS/Blog ingestion (Implemented ✅)
+The app now supports adding static blogs and RSS feeds without requiring OAuth:
+
+**Feed Discovery** (`src/rss/feed-discovery.ts`):
+- Tries well-known paths first: `/feed.xml`, `/rss.xml`, `/atom.xml`, `/feed/`, `/index.xml`, `/feed.json`
+- Falls back to HTML `<link rel="alternate">` tag parsing
+- Supports RSS, Atom, and JSON Feed formats
+
+**Feed Parsing** (`src/rss/feed-parser.ts`):
+- Normalizes RSS/Atom/JSON Feed into a unified `ParsedFeed` structure
+- Generates content hashes for deduplication
+- Supports ETag/Last-Modified headers for efficient polling
+
+**Ingestion Service** (`src/rss/rss-ingest.ts`):
+- `addBlogSource(siteUrl, feedUrl?)` - adds a new blog (auto-discovery or manual feed URL)
+- `syncSource(sourceId)` - fetches new posts from a feed
+- `syncAllSources()` - syncs all user's RSS sources
+- Stores feeds in `rss_sources` table with discovery method, sync status, and ETag/Last-Modified
+
+**Database Schema**:
+- `rss_sources` - tracks RSS/blog feeds users have added
+- `creators` (sourceType: 'rss') - blog/feed metadata
+- `content_items` (sourceType: 'rss', mediaType: 'article') - blog posts
+
+**API Routes** (in `server.ts`):
+- `POST /api/rss/sources` - add a new blog
+- `GET /api/rss/sources` - get user's RSS sources
+- `POST /api/rss/sources/:sourceId/sync` - manually sync a source
+- `DELETE /api/rss/sources/:sourceId` - remove a source
+- `GET /api/rss/posts?limit=N` - get latest posts
+
+**Frontend** (`rss-blogs.js`):
+- "Add new source" button opens a modal for adding blogs
+- Auto-discovery shows user which method was used (well-known path vs HTML parsing)
+- RSS posts appear in the "Reading" section alongside Substack posts
+- Supports manual feed URL input if auto-discovery fails
 
 ### Adding cron jobs for feed refresh
 Use `node-cron` to schedule periodic sync operations:

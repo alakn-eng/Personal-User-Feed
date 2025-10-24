@@ -27,13 +27,22 @@
         <button class="youtube-connect" id="youtube-auth" type="button">
           Connect YouTube
         </button>
-        <form class="navbar__search" role="search">
-          <label class="sr-only" for="feed-search">Search feed</label>
-          <input id="feed-search" type="search" name="q" placeholder="Search feed" />
-        </form>
-        <button class="profile-button" type="button" aria-label="Profile and settings">
-          <span class="profile-button__avatar" aria-hidden="true"></span>
+        <button class="add-blog-button" id="add-blog-nav" type="button">
+          + Add Blog
         </button>
+        <div class="profile-dropdown-wrapper">
+          <button class="profile-button" id="blog-manage-nav" type="button" aria-label="Manage blogs">
+            <span class="profile-button__avatar" aria-hidden="true"></span>
+          </button>
+          <div class="blog-dropdown" id="blog-dropdown" hidden>
+            <div class="blog-dropdown__header">
+              <h3>Your Blogs</h3>
+            </div>
+            <div class="blog-dropdown__list" id="blog-list">
+              <div class="blog-dropdown__loading">Loading...</div>
+            </div>
+          </div>
+        </div>
       </div>
     </header>
 
@@ -145,5 +154,6 @@
   <script type="module" src="youtube.js"></script>
   <script type="module" src="gmail-button.js"></script>
   <script type="module" src="substack.js"></script>
+  <script type="module" src="rss-blogs.js"></script>
 </body>
 </html>
